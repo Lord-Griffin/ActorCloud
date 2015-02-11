@@ -17,6 +17,7 @@ package org.mephi.griffin.actorcloud;
 
 import akka.actor.ActorSystem;
 import akka.actor.Props;
+import io.netty.handler.ssl.OpenSsl;
 import java.io.IOException;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;

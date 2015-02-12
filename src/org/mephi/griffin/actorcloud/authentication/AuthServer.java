@@ -26,6 +26,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -96,7 +97,7 @@ public class AuthServer extends UntypedActor {
 		logger.logp(Level.FINE, "AuthServer", "preStart", "Authentication server starts");
 		try {
 			SelfSignedCertificate ssc = new SelfSignedCertificate();
-			SslContext sslCtx = SslContext.newServerContext(ssc.certificate(), ssc.privateKey());
+			SslContext sslCtx = SslContext.newServerContext(SslProvider.OPENSSL, ssc.certificate(), ssc.privateKey());
 			bossGroup = new NioEventLoopGroup(1);
 			workerGroup = new NioEventLoopGroup();
 			ServerBootstrap bootstrap = new ServerBootstrap();

@@ -24,9 +24,9 @@ import akka.actor.Props;
 import akka.actor.UntypedActor;
 import java.io.File;
 import java.math.BigInteger;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,15 +59,14 @@ public class Manager extends UntypedActor {
 	private ActorRef enqueuer;
 	private ActorRef storage;
 	private int storageState;
-	private Map<String, ClientData> clients;
-	private SecureRandom random;
+	private final Map<String, ClientData> clients;
+	private final SecureRandom random;
 	
-	private ClassLoader cl;
-	private File dirs[];
-	private List<InetAddress> addresses;
-	private int authPort;
-	private int netPort;
-	private List<InetSocketAddress> storageAddresses;
+	private final ClassLoader cl;
+	private final File dirs[];
+	private final List<InetSocketAddress> authAddresses;
+	private final List<InetSocketAddress> netAddresses;
+	private final List<InetSocketAddress> storageAddresses;
 	
 	public Manager() {
 		logger.entering("Manager", "Constructor");
@@ -77,22 +76,22 @@ public class Manager extends UntypedActor {
 		dirs[0] = new File("D:\\dropbox\\netbeans\\actorcloudchat\\dist");
 		dirs[1] = new File("D:\\dropbox\\netbeans\\actorcloudconvolution\\dist");
 		dirs[2] = new File("D:\\dropbox\\netbeans\\actorcloudnettest\\dist");
-		addresses = null;
-		authPort = 8444;
-		netPort = 8446;
+		authAddresses = new ArrayList<>();
+		authAddresses.add(new InetSocketAddress("0.0.0.0", 8444));
+		netAddresses = new ArrayList<>();
+		netAddresses.add(new InetSocketAddress("0.0.0.0", 8446));
 		storageAddresses = null;
-		if(addresses == null) logger.logp(Level.CONFIG, "Manager", "Constructor", "Listen addresses: all addresses");
-		else {
-			String log = "Listen addresses: ";
-			for(int i = 0; i < addresses.size() - 1; i++) log += addresses.get(i).getHostAddress() + ", ";
-			log += addresses.get(addresses.size() - 1).getHostAddress();
-			logger.logp(Level.CONFIG, "Manager", "Constructor", log);
-		}
-		logger.logp(Level.CONFIG, "Manager", "Constructor", "Authentication server port: " + authPort);
-		logger.logp(Level.CONFIG, "Manager", "Constructor", "Network server port: " + netPort);
+		String log = "Authentication server listen addresses: ";
+		for(int i = 0; i < authAddresses.size() - 1; i++) log += authAddresses.get(i) + ", ";
+		log += authAddresses.get(authAddresses.size() - 1);
+		logger.logp(Level.CONFIG, "Manager", "Constructor", log);
+		log = "Network server listen addresses: ";
+		for(int i = 0; i < netAddresses.size() - 1; i++) log += netAddresses.get(i) + ", ";
+		log += netAddresses.get(netAddresses.size() - 1);
+		logger.logp(Level.CONFIG, "Manager", "Constructor", log);
 		if(storageAddresses == null) logger.logp(Level.CONFIG, "Manager", "Constructor", "Storage addresses: localhost");
 		else {
-			String log = "Storage addresses: ";
+			log = "Storage addresses: ";
 			for(int i = 0; i < storageAddresses.size() - 1; i++) log += storageAddresses.get(i).getAddress().getHostAddress() + ":" + storageAddresses.get(i).getPort() + ", ";
 			log += storageAddresses.get(storageAddresses.size() - 1).getAddress().getHostAddress() + ":" + storageAddresses.get(storageAddresses.size() - 1).getPort();
 			logger.logp(Level.CONFIG, "Manager", "Constructor", log);
@@ -107,8 +106,8 @@ public class Manager extends UntypedActor {
 	public void preStart() {
 		logger.entering("Manager", "preStart");
 		logger.logp(Level.FINE, "Manager", "preStart", "Starting actors");
-		ActorRef authServerActor = getContext().actorOf(Props.create(AuthServer.class, addresses, authPort), "auth-server");
-		ActorRef netServerActor = getContext().actorOf(Props.create(NetServer.class, addresses, netPort, cl), "net-server");
+		ActorRef authServerActor = getContext().actorOf(Props.create(AuthServer.class, authAddresses), "auth-server");
+		ActorRef netServerActor = getContext().actorOf(Props.create(NetServer.class, netAddresses, cl), "net-server");
 		enqueuer = getContext().actorOf(Props.create(Enqueuer.class), "enqueuer");
 		storage = getContext().actorOf(Props.create(StorageActor.class, storageAddresses), "storage");
 		storageState = WAITING;
@@ -160,9 +159,9 @@ public class Manager extends UntypedActor {
 						cd.setActorState(true);
 						List<AuthData> ad = cd.getAuthData();
 						if(ad != null) {
-							logger.logp(Level.FINER, "Manager", "onReceive", "Got waiting authentication channel list for client \"" + client + "\"");
+							logger.logp(Level.FINER, "Manager", "onReceive", "Got waiting authentication session list for client \"" + client + "\"");
 							for(AuthData authData : cd.getAuthData()) {
-								logger.logp(Level.FINER, "Manager", "onReceive", "Processing waiting authentication channel " + authData);
+								logger.logp(Level.FINER, "Manager", "onReceive", "Processing waiting authentication session " + authData);
 								if(authData.getToken() != null) {
 									logger.logp(Level.WARNING, "Manager", "onReceive", "Found token generated when actor was not ready: client \"" + client + "\", " + authData);
 									AllowConnection ac = new AllowConnection(client, authData.getToken(), authData.getAddress());
@@ -172,7 +171,7 @@ public class Manager extends UntypedActor {
 								else {
 									String token = (new BigInteger(130, random)).toString(32);
 									authData.setToken(token);
-									logger.logp(Level.FINER, "Manager", "onReceive", "Generated token for channel " + authData);
+									logger.logp(Level.FINER, "Manager", "onReceive", "Generated token for session " + authData);
 									AllowConnection ac = new AllowConnection(client, token, authData.getAddress());
 									logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Enqueuer: " + ac);
 									enqueuer.tell(ac, getSelf());
@@ -180,7 +179,7 @@ public class Manager extends UntypedActor {
 							}
 						}
 						else {
-							logger.logp(Level.SEVERE, "Manager", "onReceive", "Waiting authentication channel list for client \"" + client + "\" not found");
+							logger.logp(Level.SEVERE, "Manager", "onReceive", "Waiting authentication session list for client \"" + client + "\" not found");
 						}
 					}
 					else {
@@ -216,21 +215,21 @@ public class Manager extends UntypedActor {
 						logger.logp(Level.FINER, "Manager", "onReceive", "Got client data for client \"" + client + "\": " + cd);
 						List<AuthData> ad = cd.getAuthData();
 						if(ad != null) {
-							logger.logp(Level.FINER, "Manager", "onReceive", "Got waiting authentication channel list for client \"" + client + "\"");
+							logger.logp(Level.FINER, "Manager", "onReceive", "Got waiting authentication session list for client \"" + client + "\"");
 							for(AuthData authData : cd.getAuthData()) {
-								logger.logp(Level.FINER, "Manager", "onReceive", "Processing waiting authentication channel " + authData);
+								logger.logp(Level.FINER, "Manager", "onReceive", "Processing waiting authentication session " + authData);
 								if(authData.getToken() != null) {
 									logger.logp(Level.WARNING, "Manager", "onReceive", "Found token generated when actor was not ready: client \"" + client + "\", " + authData);
 								}
 								else {
-									AuthDecline adc = new AuthDecline(authData.getAuthChannelId(), ifd.getError());
+									AuthDecline adc = new AuthDecline(authData.getAuthSessionId(), ifd.getError());
 									logger.logp(Level.FINER, "Manager", "onReceive", "AuthDecline -> AuthServer: " + adc);
 									authServer.getRef().tell(adc, getSelf());
 								}
 							}
 						}
 						else {
-							logger.logp(Level.SEVERE, "Manager", "onReceive", "Waiting authentication channel list for client \"" + client + "\" not found");
+							logger.logp(Level.SEVERE, "Manager", "onReceive", "Waiting authentication session list for client \"" + client + "\" not found");
 						}
 						logger.logp(Level.FINER, "Manager", "onReceive", "Removed client \"" + client + "\" from client list");
 						clients.remove(ifd.getName());
@@ -291,7 +290,7 @@ public class Manager extends UntypedActor {
 				else
 					clientActor = getContext().actorOf(Props.create(ClientActor.class, ca.getLogin(), cl, netServer.getRef(), storage, ca.getMessageHandler(), ca.getChildHandler()), client);
 				logger.logp(Level.FINE, "Manager", "onReceive", "Created client actor " + clientActor);
-				ClientData cd = new ClientData(ca.getAddress(), ca.getChannelId(), clientActor);
+				ClientData cd = new ClientData(ca.getAddress(), ca.getSessionId(), clientActor);
 				logger.logp(Level.FINER, "Manager", "onReceive", "Added client \"" + client + "\" to client list: " + cd);
 				clients.put(client, cd);
 				//ActorRefMessage msg = new ActorRefMessage(ActorRefMessage.ENQUEUER, enqueuer);
@@ -309,15 +308,15 @@ public class Manager extends UntypedActor {
 			}
 			else if (!clients.get(client).isActorReady()) {
 				logger.logp(Level.FINE, "Manager", "onReceive", "Client's \"" + client + "\" not first connection. Actor is not ready");
-				clients.get(client).addAuthData(ca.getAddress(), ca.getChannelId());
-				logger.logp(Level.FINER, "Manager", "onReceive", "Added client's channel to waiting list: " + clients.get(client));
+				clients.get(client).addAuthData(ca.getAddress(), ca.getSessionId());
+				logger.logp(Level.FINER, "Manager", "onReceive", "Added client's session to waiting list: " + clients.get(client));
 			}
 			else {
 				logger.logp(Level.FINE, "Manager", "onReceive", "Client's \"" + client + "\" not first connection. Actor is ready");
 				String token = (new BigInteger(130, random)).toString(32);
 				logger.logp(Level.FINER, "Manager", "onReceive", "Generated token " + token);
-				clients.get(client).addAuthData(token, ca.getAddress(), ca.getChannelId());
-				logger.logp(Level.FINER, "Manager", "onReceive", "Added client's channel to waiting list: " + clients.get(client));
+				clients.get(client).addAuthData(token, ca.getAddress(), ca.getSessionId());
+				logger.logp(Level.FINER, "Manager", "onReceive", "Added client's session to waiting list: " + clients.get(client));
 				AllowConnection msg = new AllowConnection(client, token, ca.getAddress());
 				logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Enqueuer: " + msg);
 				enqueuer.tell(msg, getSelf());
@@ -332,15 +331,15 @@ public class Manager extends UntypedActor {
 				logger.logp(Level.FINER, "Manager", "onReceive", "Got client data for client \"" + client + "\": " + cd);
 				AuthData authData = cd.getAuthData(ac.getToken());
 				if(authData != null) {
-					logger.logp(Level.FINER, "Manager", "onReceive", "Got waiting authentication channel for client \"" + client + "\" by token " + ac.getToken() + ": " + authData);
-					AuthConfirmation msg = new AuthConfirmation(authData.getAuthChannelId(), ac.getToken(), netServer.getAddresses(), netServer.getPort());
+					logger.logp(Level.FINER, "Manager", "onReceive", "Got waiting authentication session for client \"" + client + "\" by token " + ac.getToken() + ": " + authData);
+					AuthConfirmation msg = new AuthConfirmation(authData.getAuthSessionId(), ac.getToken(), netServer.getAddresses());
 					logger.logp(Level.FINER, "Manager", "onReceive", "AuthConfirmation -> AuthServer: " + msg);
 					authServer.getRef().tell(msg, getSelf());
-					logger.logp(Level.FINER, "Manager", "onReceive", "Removed waiting authentication channel for clien \"" + client + "\"");
+					logger.logp(Level.FINER, "Manager", "onReceive", "Removed waiting authentication session for clien \"" + client + "\"");
 					cd.getAuthData().remove(authData);
 				}
 				else {
-					logger.logp(Level.WARNING, "Manager", "onReceive", "Waiting authentication channel for client \"" + client + "\" not found by token " + ac.getToken());
+					logger.logp(Level.WARNING, "Manager", "onReceive", "Waiting authentication session for client \"" + client + "\" not found by token " + ac.getToken());
 				}
 			}
 			else {

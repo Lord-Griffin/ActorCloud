@@ -17,7 +17,6 @@ package org.mephi.griffin.actorcloud;
 
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-import io.netty.handler.ssl.OpenSsl;
 import java.io.IOException;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
@@ -42,7 +41,7 @@ public class ActorCloud {
 		Handler handler = new FileHandler("%h/java%g.log", 0, 1);
 		handler.setFormatter(new SimpleFormatter());
 		Logger.getLogger("org.mephi.griffin.actorcloud").addHandler(handler);
-		//Logger.getLogger("").getHandlers()[0].setLevel(Level.FINER);
+		Logger.getLogger("").getHandlers()[0].setLevel(Level.FINER);
 		final ActorSystem system = ActorSystem.create("actorcloud");
 		system.actorOf(Props.create(Manager.class), "actor-manager");
 	}

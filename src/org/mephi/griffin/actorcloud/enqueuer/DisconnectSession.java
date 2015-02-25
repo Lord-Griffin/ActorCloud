@@ -19,21 +19,21 @@ package org.mephi.griffin.actorcloud.enqueuer;
  *
  * @author Griffin
  */
-public class DisconnectChannel {
+public class DisconnectSession {
 	public static final int NOTOKEN = 1;
 	
-	private int channelId;
+	private int sessionId;
 	private int reason;
 	
-	public DisconnectChannel() {}
+	public DisconnectSession() {}
 	
-	public DisconnectChannel(int channelId, int reason) {
-		this.channelId = channelId;
+	public DisconnectSession(int sessionId, int reason) {
+		this.sessionId = sessionId;
 		this.reason = reason;
 	}
 	
-	public int getChannelId() {
-		return channelId;
+	public int getSessionId() {
+		return sessionId;
 	}
 	
 	public int getReason() {
@@ -42,7 +42,7 @@ public class DisconnectChannel {
 	
 	@Override
 	public String toString() {
-		String res = "Channel id " + channelId + ", reason \"";
+		String res = "Session id " + sessionId + ", reason \"";
 		switch(reason) {
 			case NOTOKEN:
 				res += "Invalid token";

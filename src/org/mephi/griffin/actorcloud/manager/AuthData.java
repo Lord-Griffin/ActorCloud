@@ -16,6 +16,7 @@
 package org.mephi.griffin.actorcloud.manager;
 
 import akka.actor.ActorRef;
+import java.net.InetAddress;
 
 /**
  *
@@ -24,20 +25,20 @@ import akka.actor.ActorRef;
 public class AuthData {
 	
 	private String token;
-	private String address;
-	private int authChannelId;
+	private InetAddress address;
+	private int authSessionId;
 	//private ActorRef authServer;
 	
 	public AuthData() {}
 	
-	public AuthData(String address, int authChannelId/*, ActorRef authServer*/) {
-		this(null, address, authChannelId/*, authServer*/);
+	public AuthData(InetAddress address, int authSessionId/*, ActorRef authServer*/) {
+		this(null, address, authSessionId/*, authServer*/);
 	}
 	
-	public AuthData(String token, String address, int authChannelId/*, ActorRef authServer*/) {
+	public AuthData(String token, InetAddress address, int authSessionId/*, ActorRef authServer*/) {
 		this.token = token;
 		this.address = address;
-		this.authChannelId = authChannelId;
+		this.authSessionId = authSessionId;
 		//this.authServer = authServer;
 	}
 	
@@ -49,12 +50,12 @@ public class AuthData {
 		return token;
 	}
 	
-	public String getAddress() {
+	public InetAddress getAddress() {
 		return address;
 	}
 	
-	public int getAuthChannelId() {
-		return authChannelId;
+	public int getAuthSessionId() {
+		return authSessionId;
 	}
 	
 	/*public ActorRef getAuthServer() {
@@ -63,6 +64,6 @@ public class AuthData {
 	
 	@Override
 	public String toString() {
-		return "Authentication channel id " + authChannelId + ", address " + address + ", token " + token;
+		return "Authentication session id " + authSessionId + ", address " + address + ", token " + token;
 	}
 }

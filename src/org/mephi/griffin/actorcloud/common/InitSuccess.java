@@ -13,42 +13,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
-
-import java.net.InetAddress;
+package org.mephi.griffin.actorcloud.common;
 
 /**
  *
  * @author Griffin
  */
-public class AllowConnection {
+public class InitSuccess {
+	public static final int STORAGE = 1;
+	public static final int CLIENT = 100;
+	public static final int CHILD = 101;
+	private int type;
+	private String name;
 	
-	private String client;
-	private String token;
-	private InetAddress address;
+	public InitSuccess() {}
 	
-	public AllowConnection() {}
-	
-	public AllowConnection(String client, String token, InetAddress address) {
-		this.client = client;
-		this.token = token;
-		this.address = address;
+	public InitSuccess(int type, String name) {
+		this.type = type;
+		this.name = name;
 	}
 	
-	public String getClient() {
-		return client;
+	public int getType() {
+		return type;
 	}
 	
-	public String getToken() {
-		return token;
-	}
-	
-	public InetAddress getAddress() {
-		return address;
+	public String getName() {
+		return name;
 	}
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", token " + token + ", address " + address;
+		String res = "";
+		switch(type) {
+			case STORAGE:
+				res += "Storage";
+				break;
+			case CLIENT:
+				res += "Client actor \"" + name + "\"";
+				break;
+			case CHILD:
+				res += "Child actor " + name;
+		}
+		return res;
 	}
 }

@@ -116,9 +116,9 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         acc = AccessController.getContext();
     }
 
-    private WeakHashMap<Closeable,Void>
-        closeables = new WeakHashMap<>();
+    private final WeakHashMap<Closeable,Void> closeables = new WeakHashMap<>();
 
+	@Override
     public InputStream getResourceAsStream(String name) {
         URL url = getResource(name);
         try {
@@ -146,6 +146,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         }
     }
 
+	@Override
     public void close() throws IOException {
         SecurityManager security = System.getSecurityManager();
         if (security != null) {
@@ -185,6 +186,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         return ucp.getURLs();
     }
 
+	@Override
     protected Class<?> findClass(final String name)
          throws ClassNotFoundException
     {
@@ -216,6 +218,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         try {
             return AccessController.doPrivileged(
                 new PrivilegedExceptionAction<Class>() {
+					@Override
                     public Class run() throws ClassNotFoundException {
                         String path = name.replace('.', '/').concat(".class");
                         Resource res = ucp.getResource(path, false);
@@ -368,12 +371,14 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         return "true".equalsIgnoreCase(sealed);
     }
 
+	@Override
     public URL findResource(final String name) {
         /*
          * The same restriction to finding classes applies to resources
          */
         URL url = AccessController.doPrivileged(
             new PrivilegedAction<URL>() {
+				@Override
                 public URL run() {
                     return ucp.findResource(name, true);
                 }
@@ -382,6 +387,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         return url != null ? ucp.checkURL(url) : null;
     }
 
+	@Override
     public Enumeration<URL> findResources(final String name)
         throws IOException
     {
@@ -397,6 +403,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
                 do {
                     URL u = AccessController.doPrivileged(
                         new PrivilegedAction<URL>() {
+							@Override
                             public URL run() {
                                 if (!e.hasMoreElements())
                                     return null;
@@ -410,6 +417,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
                 return url != null;
             }
 
+			@Override
             public URL nextElement() {
                 if (!next()) {
                     throw new NoSuchElementException();
@@ -419,12 +427,14 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
                 return u;
             }
 
+			@Override
             public boolean hasMoreElements() {
                 return next();
             }
         };
     }
 
+	@Override
     protected PermissionCollection getPermissions(CodeSource codesource)
     {
         PermissionCollection perms = super.getPermissions(codesource);
@@ -469,8 +479,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
             }
             String host = locUrl.getHost();
             if (host != null && (host.length() > 0))
-                p = new SocketPermission(host,
-                                         SecurityConstants.SOCKET_CONNECT_ACCEPT_ACTION);
+                p = new SocketPermission(host, SecurityConstants.SOCKET_CONNECT_ACCEPT_ACTION);
         }
 
         // make sure the person that created this class loader
@@ -481,6 +490,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
             if (sm != null) {
                 final Permission fp = p;
                 AccessController.doPrivileged(new PrivilegedAction<Void>() {
+					@Override
                     public Void run() throws SecurityException {
                         sm.checkPermission(fp);
                         return null;
@@ -499,6 +509,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         // Need a privileged block to create the class loader
         JarClassLoader ucl = AccessController.doPrivileged(
             new PrivilegedAction<JarClassLoader>() {
+				@Override
                 public JarClassLoader run() {
                     return new FactoryJarClassLoader(dirs, parent, acc);
                 }
@@ -512,6 +523,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
         // Need a privileged block to create the class loader
         JarClassLoader ucl = AccessController.doPrivileged(
             new PrivilegedAction<JarClassLoader>() {
+				@Override
                 public JarClassLoader run() {
                     return new FactoryJarClassLoader(dirs, acc);
                 }
@@ -522,6 +534,7 @@ public class JarClassLoader extends SecureClassLoader implements Closeable {
     static {
         sun.misc.SharedSecrets.setJavaNetAccess (
             new sun.misc.JavaNetAccess() {
+				@Override
                 public URLClassPath getURLClassPath (URLClassLoader u) {
                     return new URLClassPath(u.getURLs());
                 }
@@ -546,6 +559,7 @@ final class FactoryJarClassLoader extends JarClassLoader {
         super(dirs, acc);
     }
 
+	@Override
     public final Class loadClass(String name, boolean resolve)
         throws ClassNotFoundException
     {

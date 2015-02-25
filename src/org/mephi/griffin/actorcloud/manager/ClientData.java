@@ -16,6 +16,7 @@
 package org.mephi.griffin.actorcloud.manager;
 
 import akka.actor.ActorRef;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,17 +38,17 @@ public class ClientData {
 		connections = 0;
 	}
 	
-	public ClientData(String address, int channelId, ActorRef actor/*, ActorRef authServer*/) {
+	public ClientData(InetAddress address, int sessionId, ActorRef actor/*, ActorRef authServer*/) {
 		this(actor);
-		authData.add(new AuthData(address, channelId/*, authServer*/));
+		authData.add(new AuthData(address, sessionId/*, authServer*/));
 	}
 	
-	public void addAuthData(String address, int channelId/*, ActorRef authServer*/) {
-		authData.add(new AuthData(address, channelId/*, authServer*/));
+	public void addAuthData(InetAddress address, int sessionId/*, ActorRef authServer*/) {
+		authData.add(new AuthData(address, sessionId/*, authServer*/));
 	}
 	
-	public void addAuthData(String token, String address, int channelId/*, ActorRef authServer*/) {
-		authData.add(new AuthData(token, address, channelId/*, authServer*/));
+	public void addAuthData(String token, InetAddress address, int sessionId/*, ActorRef authServer*/) {
+		authData.add(new AuthData(token, address, sessionId/*, authServer*/));
 	}
 	
 	public void addConnection() {
@@ -93,7 +94,7 @@ public class ClientData {
 		res += " ready";
 		if(actorState) res += ", and has " + connections + " connections";
 		if(!authData.isEmpty()) {
-			res += ". Channels waiting for token:\n";
+			res += ". Sessions waiting for token:\n";
 			for(AuthData data : authData) {
 				res += data + "\n";
 			}

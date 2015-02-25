@@ -15,60 +15,63 @@
  */
 package org.mephi.griffin.actorcloud.netserver;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
 import java.net.InetSocketAddress;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.mina.core.service.IoHandlerAdapter;
+import org.apache.mina.core.session.IoSession;
 import org.mephi.griffin.actorcloud.client.Message;
 
 /**
  *
  * @author Griffin
  */
-public class NetServerHandler extends SimpleChannelInboundHandler<Message> {
+public class NetServerHandler extends IoHandlerAdapter {
 	private static final Logger logger = Logger.getLogger(NetServerHandler.class.getName());
 	private final NetServer server;
-	private final int channelId;
+	private int sessionId = 0;
 	
-	public NetServerHandler(NetServer server, int channelId) {
+	public NetServerHandler(NetServer server) {
 		logger.entering("NetServerHandler", "Constructor");
-		logger.logp(Level.FINER, "NetServerHandler", "Constructor", "Client channel with id " + channelId + " initialized");
 		this.server = server;
-		this.channelId = channelId;
+		sessionId = 0;
 		logger.exiting("NetServerHandler", "Constructor");
 	}
 	
 	@Override
-	public void channelActive(final ChannelHandlerContext ctx) {
-		logger.entering("NetServerHandler", "channelActive");
-		logger.logp(Level.FINE, "NetServerHandler", "channelActive", "Connected client " + ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().getHostAddress() + ", channel id " + channelId);
-		server.addChannel(channelId, ctx.channel());
-		logger.exiting("NetServerHandler", "channelActive");
+	public void sessionOpened(IoSession session) {
+		logger.entering("NetServerHandler", "sessionOpened");
+		logger.logp(Level.FINE, "NetServerHandler", "sessionOpened", "Connected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + sessionId);
+		session.setAttribute("ID", sessionId);
+		server.addSession(sessionId++, session);
+		logger.exiting("NetServerHandler", "sessionOpened");
 	}
 	
 	@Override
-	public void channelInactive(ChannelHandlerContext ctx) {
-		logger.entering("NetServerHandler", "channelInactive");
-		logger.logp(Level.FINE, "NetServerHandler", "channelInactive", "Disconnected client " + ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().getHostAddress() + ", channel id " + channelId);
-		server.removeChannel(channelId);
-		ctx.close();
-		logger.exiting("NetServerHandler", "channelInactive");
+	public void sessionClosed(IoSession session) {
+		logger.entering("NetServerHandler", "sessionClosed");
+		logger.logp(Level.FINE, "NetServerHandler", "sessionClosed", "Disconnected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + session.getAttribute("ID"));
+		server.removeSession((int) session.getAttribute("ID"));
+		logger.exiting("NetServerHandler", "sessionClosed");
 	}
 	
 	@Override
-	public void channelRead0(ChannelHandlerContext ctx, Message msg) {
-		logger.entering("NetServerHandler", "channelRead0");
-		logger.logp(Level.FINE, "NetServerHandler", "channelRead0", "Message " + msg.getClass().getName() + " from client " + ((InetSocketAddress) ctx.channel().remoteAddress()).getAddress().getHostAddress() + ", channel id " + channelId);
-		server.receive(channelId, msg);
-		logger.exiting("NetServerHandler", "channelRead0");
+	public void messageReceived(IoSession session, Object message) {
+		logger.entering("NetServerHandler", "messageReceived");
+		if(!(message instanceof Message)) logger.logp(Level.FINER, "NetServerHandler", "messageReceived", "Discarded unexpected object " + message.getClass().getName());
+		else {
+			logger.logp(Level.FINE, "NetServerHandler", "messageReceived", "Message " + message.getClass().getName() + " from client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + session.getAttribute("ID"));
+			server.receive((int) session.getAttribute("ID"), (Message) message);
+		}
+		logger.exiting("NetServerHandler", "messageReceived");
 	}
 		
 	@Override
-	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+	public void exceptionCaught(IoSession session, Throwable cause) {
 		logger.entering("NetServerHandler", "exceptionCaught");
 		logger.throwing("NetServerHandler", "exceptionCaught", cause);
-		ctx.close();
+		session.close(true);
+		server.removeSession((int) session.getAttribute("ID"));
 		logger.exiting("NetServerHandler", "exceptionCaught");
 	}
 }

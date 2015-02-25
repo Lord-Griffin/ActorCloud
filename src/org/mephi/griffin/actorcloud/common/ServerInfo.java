@@ -16,7 +16,7 @@
 package org.mephi.griffin.actorcloud.common;
 
 import akka.actor.ActorRef;
-import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.List;
 
 /**
@@ -25,33 +25,27 @@ import java.util.List;
  */
 public class ServerInfo {
 	ActorRef reference;
-	List<InetAddress> addresses;
-	int port;
+	List<InetSocketAddress> addresses;
 	
-	public ServerInfo(ActorRef reference, List<InetAddress> addresses, int port) {
+	public ServerInfo(ActorRef reference, List<InetSocketAddress> addresses) {
 		this.reference = reference;
 		this.addresses = addresses;
-		this.port = port;
 	}
 	
 	public ActorRef getRef() {
 		return reference;
 	}
 	
-	public List<InetAddress> getAddresses() {
+	public List<InetSocketAddress> getAddresses() {
 		return addresses;
-	}
-	
-	public int getPort() {
-		return port;
 	}
 	
 	@Override
 	public String toString() {
 		String res = reference + "; ";
 		for(int i = 0; i < addresses.size() - 1; i++)
-			res += addresses.get(i).getHostAddress() + ":" + port + ",";
-		res += addresses.get(addresses.size() - 1).getHostAddress() + ":" + port;
+			res += addresses.get(i).getAddress().getHostAddress() + ":" + addresses.get(i).getPort() + ", ";
+		res += addresses.get(addresses.size() - 1).getAddress().getHostAddress() + ":" + addresses.get(addresses.size() - 1).getPort();
 		return res;
 	}
 }

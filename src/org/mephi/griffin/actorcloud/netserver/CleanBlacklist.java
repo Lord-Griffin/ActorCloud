@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Griffin.
+ * Copyright 2015 Griffin.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,30 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer;
-
-import java.net.InetAddress;
+package org.mephi.griffin.actorcloud.netserver;
 
 /**
  *
  * @author Griffin
  */
-public class AllowAddress {
+public class CleanBlacklist {
 	
-	private InetAddress address;
-	
-	public AllowAddress() {}
-	
-	public AllowAddress(InetAddress address) {
-		this.address = address;
-	}
-	
-	public InetAddress getAddress() {
-		return address;
-	}
-	
-	@Override
-	public String toString() {
-		return "Address " + address;
-	}
 }

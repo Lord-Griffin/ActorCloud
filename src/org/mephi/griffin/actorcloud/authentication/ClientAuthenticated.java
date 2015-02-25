@@ -15,6 +15,8 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
+import java.net.InetAddress;
+
 /**
  *
  * @author Griffin
@@ -22,17 +24,17 @@ package org.mephi.griffin.actorcloud.authentication;
 public class ClientAuthenticated {
 	
 	private String login;
-	private String address;
-	private int channelId;
+	private InetAddress address;
+	private int sessionId;
 	private String messageHandler;
 	private String childHandler;
 	
 	public ClientAuthenticated() {}
 	
-	public ClientAuthenticated(String login, String address, int channelId, String messageHandler, String childHandler) {
+	public ClientAuthenticated(String login, InetAddress address, int sessionId, String messageHandler, String childHandler) {
 		this.login = login;
 		this.address = address;
-		this.channelId = channelId;
+		this.sessionId = sessionId;
 		this.messageHandler = messageHandler;
 		this.childHandler = childHandler;
 	}
@@ -41,12 +43,12 @@ public class ClientAuthenticated {
 		return login;
 	}
 	
-	public String getAddress() {
+	public InetAddress getAddress() {
 		return address;
 	}
 	
-	public int getChannelId() {
-		return channelId;
+	public int getSessionId() {
+		return sessionId;
 	}
 	
 	public String getMessageHandler() {
@@ -59,6 +61,6 @@ public class ClientAuthenticated {
 	
 	@Override
 	public String toString() {
-		return "Login \"" + login + "\", address " + address + ", authentication server channel id " + channelId + ", main message handler class " + messageHandler + ", child message handler class " + childHandler;
+		return "Login \"" + login + "\", address " + address + ", authentication server session id " + sessionId + ", main message handler class " + messageHandler + ", child message handler class " + childHandler;
 	}
 }

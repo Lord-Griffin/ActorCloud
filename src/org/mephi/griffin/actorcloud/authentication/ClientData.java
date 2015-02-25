@@ -15,8 +15,8 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
-import io.netty.channel.Channel;
-import org.mephi.griffin.actorcloud.util.Hex;
+import org.apache.mina.core.session.IoSession;
+import org.mephi.griffin.actorcloud.util.Coder;
 
 /**
  *
@@ -26,14 +26,14 @@ public class ClientData {
 	
 	private final String login;
 	private final byte[] hash;
-	private final int channelId;
-	private final Channel channel;
+	private final int sessionId;
+	private final IoSession session;
 	
-	public ClientData(String login, byte[] hash, int channelId, Channel channel) {
+	public ClientData(String login, byte[] hash, int sessionId, IoSession session) {
 		this.login = login;
 		this.hash = hash;
-		this.channelId = channelId;
-		this.channel = channel;
+		this.sessionId = sessionId;
+		this.session = session;
 	}
 	
 	public String getLogin() {
@@ -44,16 +44,16 @@ public class ClientData {
 		return hash;
 	}
 	
-	public int getChannelId() {
-		return channelId;
+	public int getSessionId() {
+		return sessionId;
 	}
 	
-	public Channel getChannel() {
-		return channel;
+	public IoSession getSession() {
+		return session;
 	}
 	
 	@Override
 	public String toString() {
-		return "Login \"" + login + "\", hash " + Hex.toHexString(hash) + ", channel id " + channelId;
+		return "Login \"" + login + "\", hash " + Coder.toHexString(hash) + ", session id " + sessionId;
 	}
 }

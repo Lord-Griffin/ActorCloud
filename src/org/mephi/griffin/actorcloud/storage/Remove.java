@@ -13,42 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
+package org.mephi.griffin.actorcloud.storage;
 
-import java.net.InetAddress;
+import com.mongodb.BasicDBObject;
 
-/**
- *
- * @author Griffin
- */
-public class AllowConnection {
+public class Remove {
+	private int requestId;
+	private String collection;
+	private BasicDBObject query;
 	
-	private String client;
-	private String token;
-	private InetAddress address;
+	public Remove() {}
 	
-	public AllowConnection() {}
-	
-	public AllowConnection(String client, String token, InetAddress address) {
-		this.client = client;
-		this.token = token;
-		this.address = address;
+	public Remove(int requestId, String collection, BasicDBObject query) {
+		this.requestId = requestId;
+		this.collection = collection;
+		this.query = query;
 	}
 	
-	public String getClient() {
-		return client;
+	public int getId() {
+		return requestId;
 	}
 	
-	public String getToken() {
-		return token;
+	public String getCollection() {
+		return collection;
 	}
 	
-	public InetAddress getAddress() {
-		return address;
+	public BasicDBObject getQuery() {
+		return query;
 	}
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", token " + token + ", address " + address;
+		String res = "Request id " + requestId + ", collection " + collection + ", query: ";
+		if(query != null) res += query;
+		else res += "all rows";
+		return res;
 	}
 }

@@ -21,18 +21,18 @@ package org.mephi.griffin.actorcloud.authentication;
  */
 public class AuthDecline {
 	
-	private int channelId;
+	private int sessionId;
 	private String reason;
 	
 	public AuthDecline() {}
 	
-	public AuthDecline(int channelId, String reason) {
-		this.channelId = channelId;
+	public AuthDecline(int sessionId, String reason) {
+		this.sessionId = sessionId;
 		this.reason = reason;
 	}
 	
-	public int getChannelId() {
-		return channelId;
+	public int getSessionId() {
+		return sessionId;
 	}
 	
 	public String getReason() {

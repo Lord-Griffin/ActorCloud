@@ -33,8 +33,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.client.SystemMessage;
 import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
-import org.mephi.griffin.actorcloud.netserver.ChannelDisconnected;
-import org.mephi.griffin.actorcloud.netserver.ChannelMessage;
+import org.mephi.griffin.actorcloud.netserver.SessionDisconnected;
+import org.mephi.griffin.actorcloud.netserver.SessionMessage;
 import scala.concurrent.duration.Duration;
 
 /**
@@ -46,7 +46,7 @@ public class Enqueuer extends UntypedActor {
 	private ActorRef netServer;
 	private ActorRef manager;
 	private Map<String, ActorRef> clientActors;
-	private Map<Integer, ChannelData> channels;
+	private Map<Integer, SessionData> sessions;
 	private Map<String, TokenData> tokens;
 	private Cancellable schedule = null;
 	
@@ -60,7 +60,7 @@ public class Enqueuer extends UntypedActor {
 	public void preStart() {
 		logger.entering("Enqueuer", "preStart");
 		clientActors = new HashMap<>();
-		channels = new HashMap<>();
+		sessions = new HashMap<>();
 		tokens = new HashMap<>();
 		logger.logp(Level.INFO, "Enqueuer", "preStart", "Enqueuer started");
 		logger.exiting("Enqueuer", "preStart");
@@ -120,15 +120,15 @@ public class Enqueuer extends UntypedActor {
 			tokens.put(ac.getToken(), new TokenData(ac.getClient(), timestamp));
 			if(schedule == null || schedule.isCancelled()) {
 				logger.logp(Level.FINER, "Enqueuer", "onReceive", "Started to monitor token list");
-				schedule = getContext().system().scheduler().schedule(Duration.Zero(), Duration.create(1000, TimeUnit.MILLISECONDS), getSelf(), new CheckTokens(), getContext().system().dispatcher(), ActorRef.noSender());
+				schedule = getContext().system().scheduler().schedule(Duration.Zero(), Duration.create(1000, TimeUnit.MILLISECONDS), getSelf(), new CleanTokens(), getContext().system().dispatcher(), ActorRef.noSender());
 			}
 			AllowConfirmation msg = new AllowConfirmation(ac.getClient(), ac.getToken());
 			logger.logp(Level.FINER, "Enqueuer", "onReceive", "AllowConfirmation -> Manager: " + msg);
 			getSender().tell(msg, getSelf());
 		}
-		else if(message instanceof ChannelMessage) {
-			logger.logp(Level.FINER, "Enqueuer", "onReceive", "Enqueuer <- ChannelMessage: " + message);
-			ChannelMessage cm = (ChannelMessage) message;
+		else if(message instanceof SessionMessage) {
+			logger.logp(Level.FINER, "Enqueuer", "onReceive", "Enqueuer <- SessionMessage: " + message);
+			SessionMessage cm = (SessionMessage) message;
 			String log = "Message: " + cm.getMessage().getClass().getName() + "\n";
 			for(Field field : cm.getMessage().getClass().getDeclaredFields()) {
 				try {
@@ -152,10 +152,10 @@ public class Enqueuer extends UntypedActor {
 					ActorRef clientActor = clientActors.get(data.getClient());
 					if(clientActor != null) {
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for client " + data.getClient());
-						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Added client channel with id " + cm.getChannelIds().get(0) + ", client " + data.getClient() + ", actor " + clientActors.get(data.getClient()));
-						channels.put(cm.getChannelIds().get(0), new ChannelData(data.getClient(), clientActor));
-						AddChannel msg = new AddChannel(cm.getChannelIds().get(0));
-						logger.logp(Level.FINER, "Enqueuer", "onReceive", "AddChannel -> client actor: " + msg);
+						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Added client session with id " + cm.getSessionIds().get(0) + ", client " + data.getClient() + ", actor " + clientActors.get(data.getClient()));
+						sessions.put(cm.getSessionIds().get(0), new SessionData(data.getClient(), clientActor));
+						AddSession msg = new AddSession(cm.getSessionIds().get(0));
+						logger.logp(Level.FINER, "Enqueuer", "onReceive", "AddSession -> client actor: " + msg);
 						clientActors.get(data.getClient()).tell(msg, getSelf());
 						ClientConnected cc = new ClientConnected(data.getClient());
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "ClientConnected -> Manager: " + cc);
@@ -167,70 +167,67 @@ public class Enqueuer extends UntypedActor {
 				}
 				else {
 					logger.logp(Level.INFO, "Enqueuer", "onReceive", "Token " + token + " is invalid");
-					DisconnectChannel msg = new DisconnectChannel(cm.getChannelIds().get(0), DisconnectChannel.NOTOKEN);
-					logger.logp(Level.FINER, "Enqueuer", "onReceive", "DisconnectChannel -> NetServer: " + msg);
+					DisconnectSession msg = new DisconnectSession(cm.getSessionIds().get(0), DisconnectSession.NOTOKEN);
+					logger.logp(Level.FINER, "Enqueuer", "onReceive", "DisconnectSession -> NetServer: " + msg);
 					netServer.tell(msg, getSelf());
 				}
 			}
 			else {
-				ChannelData data = channels.get(cm.getChannelIds().get(0));
+				SessionData data = sessions.get(cm.getSessionIds().get(0));
 				if(data != null) {
-					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got channel data for channel with id " + cm.getChannelIds().get(0) + ": " + data);
+					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got session data for session with id " + cm.getSessionIds().get(0) + ": " + data);
 					ActorRef clientActor = data.getActor();
 					if(clientActor != null) {
-						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for channel with id " + cm.getChannelIds().get(0) + ": " + clientActor);
+						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for session with id " + cm.getSessionIds().get(0) + ": " + clientActor);
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Message " + cm.getMessage().getClass().getName() + " -> client actor");
 						clientActor.tell(cm.getMessage(), getSelf());
 					}
 					else {
-						logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Client actor for channel with id " + cm.getChannelIds().get(0) + " not found");
+						logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Client actor for session with id " + cm.getSessionIds().get(0) + " not found");
 					}
 				}
 				else {
-					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Channel data for channel with id " + cm.getChannelIds().get(0) + " not found");
+					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Session data for session with id " + cm.getSessionIds().get(0) + " not found");
 				}
 			}
 		}
-		else if(message instanceof ChannelDisconnected) {
-			logger.logp(Level.FINER, "Enqueuer", "onReceive", "Enqueuer <- ChannelDisconnected: " + message);
-			ChannelDisconnected cd = (ChannelDisconnected) message;
-			ChannelData data = channels.remove(cd.getChannelId());
+		else if(message instanceof SessionDisconnected) {
+			logger.logp(Level.FINER, "Enqueuer", "onReceive", "Enqueuer <- SessionDisconnected: " + message);
+			SessionDisconnected cd = (SessionDisconnected) message;
+			SessionData data = sessions.remove(cd.getSessionId());
 			if(data != null) {
-				logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got channel data for channel with id " + cd.getChannelId() + ": " + data);
+				logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got session data for session with id " + cd.getSessionId() + ": " + data);
 				logger.logp(Level.INFO, "Enqueuer", "onReceive", "Client \"" + data.getClient() + "\" disconnected");
 				ActorRef clientActor = data.getActor();
 				if(clientActor != null) {
-					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for channel with id " + cd.getChannelId() + ": " + clientActor);
-					RemoveChannel rc = new RemoveChannel(cd.getChannelId());
-					logger.logp(Level.FINER, "Enqueuer", "onReceive", "RemoveChannel -> client actor: " + rc);
+					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for session with id " + cd.getSessionId() + ": " + clientActor);
+					RemoveSession rc = new RemoveSession(cd.getSessionId());
+					logger.logp(Level.FINER, "Enqueuer", "onReceive", "RemoveSession -> client actor: " + rc);
 					clientActor.tell(rc, getSelf());
 					ClientDisconnected msg = new ClientDisconnected(data.getClient());
 					logger.logp(Level.FINER, "Enqueuer", "onReceive", "ClientDisconnected -> Manager: " + msg);
 					manager.tell(msg, getSelf());
 				}
 				else {
-					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Client actor for channel with id " + cd.getChannelId() + " not found");
+					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Client actor for session with id " + cd.getSessionId() + " not found");
 				}
 			}
 			else {
-				logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Channel data for channel with id " + cd.getChannelId() + " not found");
+				logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Session data for session with id " + cd.getSessionId() + " not found");
 			}
 		}
-		else if(message instanceof CheckTokens) {
+		else if(message instanceof CleanTokens) {
 			logger.logp(Level.FINER, "Enqueuer", "onReceive", "Enqueuer <- CheckTokens");
 			Date now = new Date();
 			int count = 0;
 			List<String> expiredTokens = new ArrayList<>();
 			for(Entry<String, TokenData> entry : tokens.entrySet()) {
-				if(entry.getValue().getTimestamp().getTime() < now.getTime() - 1000) {
+				if(entry.getValue() == null) {
+					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Token data for token " + entry.getKey() + " not found");
+				}
+				else if(entry.getValue().getTimestamp().getTime() < now.getTime() - 1000) {
 					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Token " + entry.getKey() + " is expired");
-					TokenData data = entry.getValue();
-					if(data != null) {
-						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got token data for token " + entry.getKey() + ": " + data);
-					}
-					else {
-						logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Token data for token " + entry.getKey() + " not found");
-					}
+					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got token data for token " + entry.getKey() + ": " + entry.getValue());
 					expiredTokens.add(entry.getKey());
 				}
 				else {

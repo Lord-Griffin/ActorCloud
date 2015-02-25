@@ -18,23 +18,18 @@ package org.mephi.griffin.actorcloud.authentication;
 import org.mephi.griffin.actorcloud.manager.AuthConfirmation;
 import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
-import java.net.SocketException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,7 +39,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.net.ssl.SSLException;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import org.apache.mina.core.buffer.IoBuffer;
+import org.apache.mina.core.filterchain.DefaultIoFilterChainBuilder;
+import org.apache.mina.core.session.IoSession;
+import org.apache.mina.filter.ssl.SslFilter;
+import org.apache.mina.transport.socket.SocketAcceptor;
+import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
@@ -64,27 +67,19 @@ public class AuthServer extends UntypedActor {
 	private static final Logger logger = Logger.getLogger(AuthServer.class.getName());
 	private ActorRef manager;
 	private Storage storage;
-	private List<InetAddress> addresses;
-	private int port;
-	private EventLoopGroup bossGroup;
-	private EventLoopGroup workerGroup;
-	private List<Channel> serverChannels;
-	private final Map<Integer, Channel> channels;
+	private List<InetSocketAddress> addresses;
+	private SocketAcceptor acceptor;
+	private final Map<Integer, IoSession> sessions;
 	private final Map<Integer, ClientData> clients;
 	
-	public AuthServer(List<InetAddress> addresses, int port) {
-		logger.entering("AuthServer", "Constructor");
+	public AuthServer(List<InetSocketAddress> addresses) {
+		logger.entering("AuthServer", "Constructor", addresses);
 		String log = "Addresses: ";
-		if(addresses == null || addresses.isEmpty()) log += "0.0.0.0:" + port;
-		else {
-			for(int i = 0; i < addresses.size() - 1; i++) log += addresses.get(i).getHostAddress() + ":" + port + ",";
-			log += addresses.get(addresses.size() - 1).getHostAddress() + ":" + port;
-		}
+		for(int i = 0; i < addresses.size() - 1; i++) log += addresses.get(i) + ", ";
+		log += addresses.get(addresses.size() - 1);
 		logger.logp(Level.FINER, "AuthServer", "Constructor", log);
 		this.addresses = addresses;
-		this.port = port;
-		serverChannels = new ArrayList<>();
-		channels = new HashMap<>();
+		sessions = new HashMap<>();
 		clients = new HashMap<>();
 		manager = getContext().parent();
 		storage = null;
@@ -96,101 +91,80 @@ public class AuthServer extends UntypedActor {
 		logger.entering("AuthServer", "preStart");
 		logger.logp(Level.FINE, "AuthServer", "preStart", "Authentication server starts");
 		try {
-			SelfSignedCertificate ssc = new SelfSignedCertificate();
-			SslContext sslCtx = SslContext.newServerContext(SslProvider.OPENSSL, ssc.certificate(), ssc.privateKey());
-			bossGroup = new NioEventLoopGroup(1);
-			workerGroup = new NioEventLoopGroup();
-			ServerBootstrap bootstrap = new ServerBootstrap();
-			bootstrap.group(bossGroup, workerGroup);
-			bootstrap.channel(NioServerSocketChannel.class);
-            //b.handler(new LoggingHandler(LogLevel.INFO));
-			bootstrap.childHandler(new AuthServerInitializer(sslCtx, this));
-			if(addresses == null || addresses.isEmpty()) {
-				addresses = new ArrayList<>();
-				ChannelFuture future = bootstrap.bind(port);
-				while(!future.isDone()) future = future.sync();
-				if(future.isSuccess()) {
-					serverChannels.add(future.channel());
-					String log = "Authentication server is listening on ";
-					try {
-						Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
-						while(ifaces.hasMoreElements()) {
-							NetworkInterface iface = ifaces.nextElement();
-							List<InterfaceAddress> ifaceaddrs = iface.getInterfaceAddresses();
-							for(InterfaceAddress ifaceaddr : ifaceaddrs) {
-								InetAddress address = ifaceaddr.getAddress();
-								if(!address.isLoopbackAddress() && !address.isLinkLocalAddress()) {
-									addresses.add(address);
-									log += address.getHostAddress() + ":" + port + ", ";
-								}
-							}
+			KeyStore keyStore = KeyStore.getInstance("jks");
+			keyStore.load(new FileInputStream("D:\\server.jks"), "antharas".toCharArray());
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
+			kmf.init(keyStore, "antharas".toCharArray());
+			KeyStore trustStore = KeyStore.getInstance("jks");
+			trustStore.load(new FileInputStream("D:\\ca.jks"), "antharas".toCharArray());
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
+			tmf.init(trustStore);
+			SSLContext sslContext = SSLContext.getInstance("SSL");
+			sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+			acceptor = new NioSocketAcceptor();
+			DefaultIoFilterChainBuilder chain = acceptor.getFilterChain();
+			SslFilter sslFilter = new SslFilter(sslContext);
+			sslFilter.setNeedClientAuth(true);
+			sslFilter.setUseClientMode(false);
+			chain.addLast("sslFilter", sslFilter);
+			acceptor.setHandler(new AuthServerHandler(this));
+			acceptor.bind(addresses);
+			ServerInfo info;
+			String log = "Authentication server is listening on: ";
+			if(addresses.get(0).getAddress().getHostAddress().equals("0.0.0.0")) {
+				List<InetSocketAddress> registerAddresses = new ArrayList<>();
+				Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+				while(ifaces.hasMoreElements()) {
+					NetworkInterface iface = ifaces.nextElement();
+					List<InterfaceAddress> ifaceaddrs = iface.getInterfaceAddresses();
+					for(InterfaceAddress ifaceaddr : ifaceaddrs) {
+						InetAddress address = ifaceaddr.getAddress();
+						if(!address.isLoopbackAddress()) {
+							registerAddresses.add(new InetSocketAddress(address, addresses.get(0).getPort()));
 						}
-						logger.logp(Level.INFO, "AuthServer", "preStart", log.substring(0, log.length() - 2));
-					}
-					catch(SocketException se) {
-						logger.throwing("AuthServer", "preStart", se);
 					}
 				}
-				else logger.throwing("AuthServer", "preStart", future.cause());
+				for(int i = 0; i < registerAddresses.size(); i++) {
+					log += registerAddresses.get(i);
+					if(i != registerAddresses.size() - 1) log += ", ";
+				}
+				info = new ServerInfo(getSelf(), registerAddresses);
 			}
 			else {
-				for(InetAddress address : addresses) {
-					ChannelFuture future = bootstrap.bind(address, port);
-					while(!future.isDone()) future = future.sync();
-					if(future.isSuccess()) {
-						serverChannels.add(future.channel());
-						logger.logp(Level.INFO, "AuthServer", "preStart", "Authentication server is listening on " + address.getHostAddress() + ":" + port);
-					}
-					else {
-						addresses.remove(address);
-						logger.throwing("AuthServer", "preStart", future.cause());
-					}
+				for(int i = 0; i < addresses.size(); i++) {
+					log += addresses.get(i);
+					if(i != addresses.size() - 1) log += ", ";
 				}
+				info = new ServerInfo(getSelf(), addresses);
 			}
-			if(serverChannels.isEmpty()) {
-				logger.logp(Level.SEVERE, "AuthServer", "preStart", "Failed to start authentication server");
-				InitFail message = new InitFail(InitFail.AUTH, "", "");
-				logger.logp(Level.FINER, "AuthServer", "preStart", "InitFail -> Manager: " + message);
-				manager.tell(message , getSelf());
-				getContext().stop(getSelf());
-			}
+			logger.logp(Level.INFO, "AuthServer", "preStart", log);
+			RegisterServer message = new RegisterServer(RegisterServer.AUTH, info);
+			logger.logp(Level.FINER, "AuthServer", "preStart", "RegisterServer -> Manager: {0}", message);
+			manager.tell(message, getSelf());
+			logger.logp(Level.INFO, "AuthServer", "preStart", "Authentication server is started");
 		}
-		catch (InterruptedException ie) {
-			logger.throwing("AuthServer", "postStop", ie);
-		}
-		catch (CertificateException | SSLException ex) {
+		catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | KeyManagementException ex) {
 			logger.logp(Level.SEVERE, "AuthServer", "preStart", "Failed to start authentication server");
 			logger.throwing("AuthServer", "preStart", ex);
 			InitFail message = new InitFail(InitFail.AUTH, "", "");
-			logger.logp(Level.FINER, "AuthServer", "preStart", "InitFail -> Manager: " + message);
-			manager.tell(message , getSelf());
+			logger.logp(Level.FINER, "AuthServer", "preStart", "InitFail -> Manager: {0}", message);
+			manager.tell(message, getSelf());
 			getContext().stop(getSelf());
 		}
-		if(addresses == null) addresses = new ArrayList<>();
-		RegisterServer message = new RegisterServer(RegisterServer.AUTH, new ServerInfo(getSelf(), addresses, port));
-		logger.logp(Level.FINER, "AuthServer", "preStart", "RegisterServer -> Manager: " + message);
-		manager.tell(message, getSelf());
-		logger.logp(Level.INFO, "AuthServer", "preStart", "Authentication server is started");
 		logger.exiting("AuthServer", "preStart");
 	}
 	
 	@Override
 	public void postStop() {
 		logger.entering("AuthServer", "postStop");
-		for(Channel channel : serverChannels) {
-			try {channel.close().sync();}
+		acceptor.unbind();
+		for(Map.Entry<Integer, IoSession> entry : sessions.entrySet()) {
+			try{entry.getValue().close(false).await();}
 			catch(InterruptedException ie) {
 				logger.throwing("AuthServer", "postStop", ie);
 			}
 		}
-		for(Map.Entry<Integer, Channel> entry : channels.entrySet()) {
-			try{entry.getValue().close().sync();}
-			catch(InterruptedException ie) {
-				logger.throwing("AuthServer", "postStop", ie);
-			}
-		}
-		workerGroup.shutdownGracefully();
-		bossGroup.shutdownGracefully();
+		acceptor.dispose();
 		logger.logp(Level.INFO, "AuthServer", "postStop", "Authentication server stopped");
 		logger.exiting("AuthServer", "postStop");
 	}
@@ -226,17 +200,17 @@ public class AuthServer extends UntypedActor {
 					logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client data from queue by storage request id " + sr.getId() + ": " + clientData);
 					if(sr.error()) {
 						logger.logp(Level.WARNING, "AuthServer", "onReceive", "Authentication declined because of storage error: " + sr.getMessage());
-						decline(clientData.getChannel(), "Storage error: " + sr.getMessage());
+						decline(clientData.getSession(), "Storage error: " + sr.getMessage());
 					}
 					else if(sr.getCount() == 0) {
 						logger.logp(Level.INFO, "AuthServer", "onReceive", "Wrong credentials: login \"" + clientData.getLogin() + "\"");
-						decline(clientData.getChannel(), "Wrong login or password");
+						decline(clientData.getSession(), "Wrong login or password");
 						logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client data from queue by id " + sr.getId());
 						clients.remove(sr.getId());
 					}
 					else if(sr.getCount() > 1) {
 						logger.logp(Level.WARNING, "AuthServer", "onReceive", "Authentication declined because of storage error: too much clients with same login: " + sr.getCount());
-						decline(clientData.getChannel(), "Storage error");
+						decline(clientData.getSession(), "Storage error");
 					}
 					else {
 						try {
@@ -245,23 +219,23 @@ public class AuthServer extends UntypedActor {
 							byte[] hash = (byte[]) entity.get("hash");
 							if(Arrays.equals(clientData.getHash(), md.digest(hash))) {
 								logger.logp(Level.INFO, "AuthServer", "onReceive", "Client \"" + clientData.getLogin() + "\" authenticated");
-								logger.logp(Level.FINER, "AuthServer", "onReceive", "Put client channel with id " + clientData.getChannelId() + " to waiting channel list");
-								channels.put(clientData.getChannelId(), clientData.getChannel());
-								String address = ((InetSocketAddress) clientData.getChannel().remoteAddress()).getAddress().getHostAddress();
+								logger.logp(Level.FINER, "AuthServer", "onReceive", "Put client session with id " + clientData.getSessionId() + " to waiting session list");
+								sessions.put(clientData.getSessionId(), clientData.getSession());
+								InetAddress address = ((InetSocketAddress) clientData.getSession().getRemoteAddress()).getAddress();
 								String messageHandler = (String) entity.get("messageHandler");
 								String childHandler = (String) entity.get("childHandler");
-								ClientAuthenticated msg = new ClientAuthenticated(clientData.getLogin(), address, clientData.getChannelId(), messageHandler, childHandler);
+								ClientAuthenticated msg = new ClientAuthenticated(clientData.getLogin(), address, clientData.getSessionId(), messageHandler, childHandler);
 								logger.logp(Level.FINER, "AuthServer", "onReceive", "ClientAuthenticated -> Manager: " + msg);
 								manager.tell(msg, getSelf());
 							}
 							else {
 								logger.logp(Level.INFO, "AuthServer", "onReceive", "Wrong credentials: login \"" + clientData.getLogin() + "\"");
-								decline(clientData.getChannel(), "Wrong login or password");
+								decline(clientData.getSession(), "Wrong login or password");
 							}
 						}
 						catch(NoSuchAlgorithmException nsae) {
 							logger.throwing("AuthServer", "onReceive", nsae);
-							decline(clientData.getChannel(), "System error");
+							decline(clientData.getSession(), "System error");
 						}
 					}
 				}
@@ -273,92 +247,100 @@ public class AuthServer extends UntypedActor {
 		else if(message instanceof AuthConfirmation) {
 			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- AuthConfirmation: " + message);
 			AuthConfirmation ac = (AuthConfirmation) message;
-			int channelId = ac.getChannelId();
+			int sessionId = ac.getSessionId();
 			String token = ac.getToken();
-			InetAddress host = ac.getAddresses().get(0);
-			int port = ac.getPort();
-			if(channels.containsKey(channelId)) {
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client channel with id " + channelId + " from waiting channel list");
-				grant(channels.get(channelId), token, host, port);
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client channel with id " + channelId + " from waiting channel list");
-				channels.remove(channelId);
+			if(sessions.containsKey(sessionId)) {
+				logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client session with id " + sessionId + " from waiting session list");
+				grant(sessions.get(sessionId), token, ac.getAddresses());
+				logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client session with id " + sessionId + " from waiting session list");
+				sessions.remove(sessionId);
 			}
 			else
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Client channel with id " + channelId + " is not in waiting list");
+				logger.logp(Level.FINER, "AuthServer", "onReceive", "Client session with id " + sessionId + " is not in waiting list");
 		}
 		if(message instanceof AuthDecline) {
 			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- AuthDecline: " + message);
 			AuthDecline ad = (AuthDecline) message;
-			int channelId = ad.getChannelId();
+			int sessionId = ad.getSessionId();
 			String reason = ad.getReason();
-			if(channels.containsKey(channelId)) {
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client channel with id " + channelId + " from waiting channel list");
-				decline(channels.get(channelId), reason);
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client channel with id " + channelId + " from waiting channel list");
-				channels.remove(channelId);
+			if(sessions.containsKey(sessionId)) {
+				logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client session with id " + sessionId + " from waiting session list");
+				decline(sessions.get(sessionId), reason);
+				logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client session with id " + sessionId + " from waiting session list");
+				sessions.remove(sessionId);
 			}
 			else
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Client channel with id " + channelId + " is not in waiting list");
+				logger.logp(Level.FINER, "AuthServer", "onReceive", "Client session with id " + sessionId + " is not in waiting list");
 		}
 		else
 			unhandled(message);
 		logger.exiting("AuthServer", "onReceive");
 	}
 	
-	public void checkAuth(String login, byte[] hash, int channelId, Channel channel) {
+	public void checkAuth(String login, byte[] hash, int sessionId, IoSession session) {
 		logger.entering("AuthServer", "checkAuth");
 		if(storage != null) {
 			logger.logp(Level.FINER, "AuthServer", "checkAuth", "Request data for client \"" + login + "\"");
 			SimpleQuery query = new SimpleQuery("name", SimpleQuery.EQUAL, login);
 			int requestId = storage.get("clients", query, null);
-			ClientData data = new ClientData(login, hash, channelId, channel);
+			ClientData data = new ClientData(login, hash, sessionId, session);
 			logger.logp(Level.FINER, "AuthServer", "checkAuth", "Put client data to waiting queue: Storage request id " + requestId + ", " + data);
 			clients.put(requestId, data);
 		}
 		else {
 			logger.logp(Level.FINER, "AuthServer", "checkAuth", "Storage unavailable");
-			decline(channel, "Storage unavailable");
+			decline(session, "Storage unavailable");
 		}
 		logger.exiting("AuthServer", "checkAuth");
 	}
 	
-	public void removeChannel(int channelId) {
-		logger.entering("AuthServer", "removeChannel");
-		channels.remove(channelId);
-		logger.exiting("AuthServer", "removeChannel");
+	public void removeSession(int sessionId) {
+		logger.entering("AuthServer", "removeSession");
+		sessions.remove(sessionId);
+		logger.exiting("AuthServer", "removeSession");
 	}
 	
-	private void decline(Channel channel, String message) {
+	private void decline(IoSession session, String message) {
 		logger.entering("AuthServer", "decline");
-		ByteBuf buf = channel.alloc().buffer();
-		buf.writeByte(1);
-		buf.writeBytes(message.getBytes());
+		IoBuffer buf = IoBuffer.allocate(message.getBytes().length + 8);
+		buf.putInt(1);
+		buf.putInt(message.getBytes().length);
+		buf.put(message.getBytes());
+		buf.flip();
 		try {
-			logger.logp(Level.FINE, "AuthServer", "decline", "Declined client authentication, address " + channel.remoteAddress() + ", reason \"" + message + "\"");
-			channel.writeAndFlush(buf).sync();
-			channel.close().sync();
+			logger.logp(Level.FINE, "AuthServer", "decline", "Declined client authentication, address " + session.getRemoteAddress() + ", reason \"" + message + "\"");
+			session.write(buf).await();
+			session.close(false).await();
 		}
 		catch (InterruptedException ie) {
-			logger.throwing("AuthServer", "postStop", ie);
+			logger.throwing("AuthServer", "decline", ie);
 		}
 		logger.exiting("AuthServer", "decline");
 	}
 	
-	private void grant(Channel channel, String token, InetAddress host, int port) {
+	private void grant(IoSession session, String token, List<InetSocketAddress> addresses) {
 		logger.entering("AuthServer", "grant");
-		ByteBuf buff = channel.alloc().buffer(12 + token.getBytes().length);
-		buff.writeByte(0);
-		buff.writeInt(token.getBytes().length);
-		buff.writeBytes(token.getBytes());
-		buff.writeBytes(host.getAddress());
-		buff.writeInt(port);
+		int size = token.getBytes().length + 12;
+		for(InetSocketAddress address : addresses)
+			size += address.getAddress().getAddress().length + 8;
+		IoBuffer buf = IoBuffer.allocate(size);
+		buf.putInt(0);
+		buf.putInt(token.getBytes().length);
+		buf.put(token.getBytes());
+		buf.putInt(addresses.size());
+		for(InetSocketAddress address : addresses) {
+			buf.putInt(address.getAddress().getAddress().length);
+			buf.put(address.getAddress().getAddress());
+			buf.putInt(address.getPort());
+		}
+		buf.flip();
 		try {
-			logger.logp(Level.FINE, "AuthServer", "grant", "Granted client authentication, address " + channel.remoteAddress() + ", token " + token + ", netServer " + host + ":" + port);
-			channel.writeAndFlush(buff).sync();
-			channel.close().sync();
+			logger.logp(Level.FINE, "AuthServer", "grant", "Granted client authentication, address " + session.getRemoteAddress() + ", token " + token + ", netServer: " + addresses);
+			session.write(buf).await();
+			session.close(false).await();
 		}
 		catch (InterruptedException ie) {
-			logger.throwing("AuthServer", "postStop", ie);
+			logger.throwing("AuthServer", "grant", ie);
 		}
 		logger.exiting("AuthServer", "grant");
 	}

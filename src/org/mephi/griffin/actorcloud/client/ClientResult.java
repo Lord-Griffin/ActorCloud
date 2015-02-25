@@ -13,42 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
-
-import java.net.InetAddress;
+package org.mephi.griffin.actorcloud.client;
 
 /**
  *
  * @author Griffin
  */
-public class AllowConnection {
-	
+public class ClientResult extends Message {
+	private boolean found;
 	private String client;
-	private String token;
-	private InetAddress address;
 	
-	public AllowConnection() {}
+	public ClientResult() {}
 	
-	public AllowConnection(String client, String token, InetAddress address) {
+	public ClientResult(boolean found, String client) {
+		this.found = found;
 		this.client = client;
-		this.token = token;
-		this.address = address;
+	}
+	
+	public boolean isFound() {
+		return found;
 	}
 	
 	public String getClient() {
 		return client;
 	}
-	
-	public String getToken() {
-		return token;
-	}
-	
-	public InetAddress getAddress() {
-		return address;
-	}
-	
+
 	@Override
-	public String toString() {
-		return "Client " + client + ", token " + token + ", address " + address;
+	public byte[] getData() {
+		return new byte[1];
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Griffin.
+ * Copyright 2014 Griffin.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,22 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.util;
+package org.mephi.griffin.actorcloud.manager;
 
-/**
- *
- * @author Griffin
- */
-public class Hex {
-	private static final char[] hexArray = "0123456789abcdef".toCharArray();
+import akka.actor.ActorRef;
 
-	public static String toHexString(byte[] bytes) {
-		char[] hexChars = new char[bytes.length * 2];
-		for (int i = 0; i < bytes.length; i++) {
-			int v = bytes[i] & 0xFF;
-			hexChars[i * 2] = hexArray[v >>> 4];
-			hexChars[i * 2 + 1] = hexArray[v & 0x0F];
-		}
-		return new String(hexChars);
+public class ClientFindResult {
+	private String client;
+	private ActorRef ref;
+	
+	public ClientFindResult() {}
+	
+	public ClientFindResult(String client, ActorRef ref) {
+		this.client = client;
+		this.ref = ref;
+	}
+	
+	public String getClient() {
+		return client;
+	}
+	
+	public ActorRef getRef() {
+		return ref;
 	}
 }

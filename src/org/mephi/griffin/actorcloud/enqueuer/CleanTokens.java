@@ -13,28 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.netserver;
+package org.mephi.griffin.actorcloud.enqueuer;
 
 /**
  *
  * @author Griffin
  */
-public class ChannelDisconnected {
+public class CleanTokens {
 	
-	private int channelId;
-	
-	public ChannelDisconnected() {}
-	
-	public ChannelDisconnected(int channelId) {
-		this.channelId = channelId;
-	}
-	
-	public int getChannelId() {
-		return channelId;
-	}
-	
-	@Override
-	public String toString() {
-		return "Channel id " + channelId;
-	}
 }

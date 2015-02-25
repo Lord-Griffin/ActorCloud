@@ -13,42 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
+package org.mephi.griffin.actorcloud.enqueuer;
 
-import java.net.InetAddress;
-
-/**
- *
- * @author Griffin
- */
-public class AllowConnection {
+public class RemoveSession {
+	private int id;
 	
-	private String client;
-	private String token;
-	private InetAddress address;
+	public RemoveSession() {}
 	
-	public AllowConnection() {}
-	
-	public AllowConnection(String client, String token, InetAddress address) {
-		this.client = client;
-		this.token = token;
-		this.address = address;
+	public RemoveSession(int id) {
+		this.id = id;
 	}
 	
-	public String getClient() {
-		return client;
-	}
-	
-	public String getToken() {
-		return token;
-	}
-	
-	public InetAddress getAddress() {
-		return address;
+	public int getId() {
+		return id;
 	}
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", token " + token + ", address " + address;
+		return "Session id " + id;
 	}
 }

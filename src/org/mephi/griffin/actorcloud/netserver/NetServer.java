@@ -15,35 +15,46 @@
  */
 package org.mephi.griffin.actorcloud.netserver;
 
-import org.mephi.griffin.actorcloud.enqueuer.DisconnectChannel;
+import org.mephi.griffin.actorcloud.enqueuer.DisconnectSession;
 import org.mephi.griffin.actorcloud.enqueuer.AllowAddress;
 import akka.actor.ActorRef;
+import akka.actor.Cancellable;
 import akka.actor.UntypedActor;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.net.ssl.SSLException;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import org.apache.mina.core.filterchain.DefaultIoFilterChainBuilder;
+import org.apache.mina.core.session.IoSession;
+import org.apache.mina.filter.codec.ProtocolCodecFilter;
+import org.apache.mina.filter.codec.serialization.ObjectSerializationCodecFactory;
+import org.apache.mina.filter.firewall.BlacklistFilter;
+import org.apache.mina.filter.ssl.SslFilter;
+import org.apache.mina.transport.socket.SocketAcceptor;
+import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.mephi.griffin.actorcloud.client.Message;
 import org.mephi.griffin.actorcloud.client.SystemMessage;
 import org.mephi.griffin.actorcloud.common.InitFail;
@@ -51,6 +62,7 @@ import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
 import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
+import scala.concurrent.duration.Duration;
 
 /**
  *
@@ -62,28 +74,24 @@ public class NetServer extends UntypedActor {
 	private ActorRef enqueuer;
 	private final ActorRef manager;
 	private final ClassLoader cl;
-	private List<InetAddress> addresses;
-	private int port;
-	private EventLoopGroup bossGroup;
-	private EventLoopGroup workerGroup;
-	private NetServerInitializer initializer;
-	private List<Channel> serverChannels;
-	private final Map<Integer, Channel> channels;
-	private final Map<String, Integer> fails;
+	private List<InetSocketAddress> addresses;
+	private SocketAcceptor acceptor;
+	private WhitelistFilter whitelist;
+	private BlacklistFilter blacklist;
+	private final Map<InetAddress, Long> bannedAddresses;
+	private final Map<Integer, IoSession> sessions;
+	private final Map<InetAddress, Integer> fails;
+	private Cancellable schedule = null;
 	
-	public NetServer(List<InetAddress> addresses, int port, ClassLoader cl) throws UnknownHostException {
-		logger.entering("NetServer", "Constructor");
+	public NetServer(List<InetSocketAddress> addresses, ClassLoader cl) throws UnknownHostException {
+		logger.entering("NetServer", "Constructor", new Object[]{addresses, cl});
 		String log = "Addresses: ";
-		if(addresses == null || addresses.isEmpty()) log += "0.0.0.0:" + port;
-		else {
-			for(int i = 0; i < addresses.size() - 1; i++) log += addresses.get(i).getHostAddress() + ":" + port + ",";
-			log += addresses.get(addresses.size() - 1).getHostAddress() + ":" + port;
-		}
+		for(int i = 0; i < addresses.size() - 1; i++) log += addresses.get(i) + ", ";
+		log += addresses.get(addresses.size() - 1);
 		logger.logp(Level.FINER, "NetServer", "Constructor", log);
 		this.addresses = addresses;
-		this.port = port;
-		serverChannels = new ArrayList<>();
-		channels = new HashMap<>();
+		sessions = new HashMap<>();
+		bannedAddresses = new HashMap<>();
 		fails = new HashMap<>();
 		manager = getContext().parent();
 		this.cl = cl;
@@ -95,102 +103,85 @@ public class NetServer extends UntypedActor {
 		logger.entering("NetServer", "preStart");
 		logger.logp(Level.FINE, "NetServer", "preStart", "Network server starts");
 		try {
-			SelfSignedCertificate ssc = new SelfSignedCertificate();
-			SslContext sslCtx = SslContext.newServerContext(ssc.certificate(), ssc.privateKey());
-			bossGroup = new NioEventLoopGroup();
-			workerGroup = new NioEventLoopGroup();
-			ServerBootstrap bootstrap = new ServerBootstrap();
-			bootstrap.group(bossGroup, workerGroup);
-			bootstrap.channel(NioServerSocketChannel.class);
-            //b.handler(new LoggingHandler(LogLevel.INFO));
-			initializer = new NetServerInitializer(cl, sslCtx, this);
-			bootstrap.childHandler(initializer);
-			if(addresses == null || addresses.isEmpty()) {
-				addresses = new ArrayList<>();
-				ChannelFuture future = bootstrap.bind(port);
-				while(!future.isDone()) future = future.sync();
-				if(future.isSuccess()) {
-					serverChannels.add(future.channel());
-					String log = "Network server is listening on ";
-					try {
-						Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
-						while(ifaces.hasMoreElements()) {
-							NetworkInterface iface = ifaces.nextElement();
-							List<InterfaceAddress> ifaceaddrs = iface.getInterfaceAddresses();
-							for(InterfaceAddress ifaceaddr : ifaceaddrs) {
-								InetAddress address = ifaceaddr.getAddress();
-								if(!address.isLoopbackAddress() && !address.isLinkLocalAddress()) {
-									addresses.add(address);
-									log += address.getHostAddress() + ":" + port + ", ";
-								}
-							}
+			KeyStore keyStore = KeyStore.getInstance("jks");
+			keyStore.load(new FileInputStream("D:\\server.jks"), "antharas".toCharArray());
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
+			kmf.init(keyStore, "antharas".toCharArray());
+			KeyStore trustStore = KeyStore.getInstance("jks");
+			trustStore.load(new FileInputStream("D:\\ca.jks"), "antharas".toCharArray());
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
+			tmf.init(trustStore);
+			SSLContext sslContext = SSLContext.getInstance("SSL");
+			sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+			acceptor = new NioSocketAcceptor();
+			DefaultIoFilterChainBuilder chain = acceptor.getFilterChain();
+			blacklist = new BlacklistFilter();
+			chain.addLast("blackList", blacklist);
+			whitelist = new WhitelistFilter();
+			chain.addLast("whitelist", whitelist);
+			SslFilter sslFilter = new SslFilter(sslContext);
+			sslFilter.setNeedClientAuth(true);
+			sslFilter.setUseClientMode(false);
+			chain.addLast("sslFilter", sslFilter);
+			chain.addLast("serializationFilter", new ProtocolCodecFilter(new ObjectSerializationCodecFactory(cl)));
+			acceptor.setHandler(new NetServerHandler(this));
+			acceptor.bind(addresses);
+			ServerInfo info;
+			String log = "Network server is listening on: ";
+			if(addresses.get(0).getAddress().getHostAddress().equals("0.0.0.0")) {
+				List<InetSocketAddress> registerAddresses = new ArrayList<>();
+				Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+				while(ifaces.hasMoreElements()) {
+					NetworkInterface iface = ifaces.nextElement();
+					List<InterfaceAddress> ifaceaddrs = iface.getInterfaceAddresses();
+					for(InterfaceAddress ifaceaddr : ifaceaddrs) {
+						InetAddress address = ifaceaddr.getAddress();
+						if(!address.isLoopbackAddress()) {
+							registerAddresses.add(new InetSocketAddress(address, addresses.get(0).getPort()));
 						}
-						logger.logp(Level.INFO, "NetServer", "preStart", log.substring(0, log.length() - 2));
-					}
-					catch(SocketException se) {
-						logger.throwing("NetServer", "preStart", se);
 					}
 				}
-				else logger.throwing("NetServer", "preStart", future.cause());
+				for(int i = 0; i < registerAddresses.size(); i++) {
+					log += registerAddresses.get(i);
+					if(i != registerAddresses.size() - 1) log += ", ";
+				}
+				info = new ServerInfo(getSelf(), registerAddresses);
 			}
 			else {
-				for(InetAddress address : addresses) {
-					ChannelFuture future = bootstrap.bind(address, port);
-					while(!future.isDone()) future = future.sync();
-					if(future.isSuccess()) {
-						serverChannels.add(future.channel());
-						logger.logp(Level.INFO, "NetServer", "preStart", "Network server is listening on " + address.getHostAddress() + ":" + port);
-					}
-					else {
-						addresses.remove(address);
-						logger.throwing("NetServer", "preStart", future.cause());
-					}
+				for(int i = 0; i < addresses.size(); i++) {
+					log += addresses.get(i);
+					if(i != addresses.size() - 1) log += ", ";
 				}
+				info = new ServerInfo(getSelf(), addresses);
 			}
-			if(serverChannels.isEmpty()) {
-				logger.logp(Level.SEVERE, "NetServer", "preStart", "Failed to start network server");
-				InitFail message = new InitFail(InitFail.NET, "", "");
-				logger.logp(Level.FINER, "NetServer", "preStart", "InitFail -> Manager: " + message);
-				manager.tell(message , getSelf());
-				getContext().stop(getSelf());
-			}
+			logger.logp(Level.INFO, "NetServer", "preStart", log);
+			RegisterServer message = new RegisterServer(RegisterServer.NET, info);
+			logger.logp(Level.FINER, "NetServer", "preStart", "RegisterServer -> Manager: {0}", message);
+			manager.tell(message, getSelf());
+			logger.logp(Level.INFO, "NetServer", "preStart", "Network server is started");
 		}
-		catch (InterruptedException ie) {
-			logger.throwing("NetServer", "postStop", ie);
-		}
-		catch (CertificateException | SSLException ex) {
+		catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | KeyManagementException ex) {
 			logger.logp(Level.SEVERE, "NetServer", "preStart", "Failed to start network server");
 			logger.throwing("NetServer", "preStart", ex);
 			InitFail message = new InitFail(InitFail.NET, "", "");
-			logger.logp(Level.FINER, "NetServer", "preStart", "InitFail -> Manager: " + message);
+			logger.logp(Level.FINER, "NetServer", "preStart", "InitFail -> Manager: {0}", message);
 			manager.tell(message , getSelf());
 			getContext().stop(getSelf());
 		}
-		if(addresses == null) addresses = new ArrayList<>();
-		RegisterServer message = new RegisterServer(RegisterServer.NET, new ServerInfo(getSelf(), addresses, port));
-		logger.logp(Level.FINER, "NetServer", "preStart", "RegisterServer -> Manager: " + message);
-		manager.tell(message, getSelf());
-		logger.logp(Level.INFO, "NetServer", "preStart", "Network server is started");
 		logger.exiting("NetServer", "preStart");
 	}
 	
 	@Override
 	public void postStop() throws Exception {
 		logger.entering("NetServer", "postStop");
-		for(Channel channel : serverChannels) {
-			try {channel.close().sync();}
+		acceptor.unbind();
+		for(Entry<Integer, IoSession> entry : sessions.entrySet()) {
+			try{entry.getValue().close(false).await();}
 			catch(InterruptedException ie) {
 				logger.throwing("NetServer", "postStop", ie);
 			}
 		}
-		for(Entry<Integer, Channel> entry : channels.entrySet()) {
-			try{entry.getValue().close().sync();}
-			catch(InterruptedException ie) {
-				logger.throwing("NetServer", "postStop", ie);
-			}
-		}
-		workerGroup.shutdownGracefully();
-		bossGroup.shutdownGracefully();
+		acceptor.dispose();
 		logger.logp(Level.INFO, "NetServer", "postStop", "Network server stopped");
 		logger.exiting("NetServer", "postStop");
 	}
@@ -220,16 +211,16 @@ public class NetServer extends UntypedActor {
 		}
 		else if(message instanceof AllowAddress) {
 			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- AllowAddress: " + message);
-			initializer.addToWhiteList(((AllowAddress) message).getAddress());
+			whitelist.allow(((AllowAddress) message).getAddress());
 		}
-		else if(message instanceof DisconnectChannel) {
-			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- DisconnectChannel: " + message);
-			DisconnectChannel dc = (DisconnectChannel) message;
-			Channel channel = channels.get(dc.getChannelId());
-			if(channel != null) {
-				logger.logp(Level.FINER, "NetServer", "onReceive", "Got client channel with id " + dc.getChannelId() + " from channel list");
-				String address = ((InetSocketAddress) channel.remoteAddress()).getAddress().getHostAddress();
-				if(dc.getReason() == DisconnectChannel.NOTOKEN) {
+		else if(message instanceof DisconnectSession) {
+			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- DisconnectSession: " + message);
+			DisconnectSession dc = (DisconnectSession) message;
+			IoSession session = sessions.get(dc.getSessionId());
+			if(session != null) {
+				logger.logp(Level.FINER, "NetServer", "onReceive", "Got client session with id " + dc.getSessionId() + " from session list");
+				InetAddress address = ((InetSocketAddress) session.getRemoteAddress()).getAddress();
+				if(dc.getReason() == DisconnectSession.NOTOKEN) {
 					logger.logp(Level.FINER, "NetServer", "onReceive", "Got client address: " + address);
 					if(!fails.containsKey(address)) {
 						logger.logp(Level.FINER, "NetServer", "onReceive", "There was 0 invalid tokens. Added " + address + " to fails counter list");
@@ -240,28 +231,34 @@ public class NetServer extends UntypedActor {
 						if(count == 5) {
 							logger.logp(Level.FINER, "NetServer", "onReceive", "There was " + count + " invalid tokens. Removed " + address + " from fails counter list");
 							fails.remove(address);
-							initializer.addToBlackList(address);
+							logger.logp(Level.FINER, "NetServer", "onReceive", "Address {0} added to blacklist", address);
+							blacklist.block(address);
+							bannedAddresses.put(address, (new Date()).getTime() + 300000);
+							if(schedule == null || schedule.isCancelled()) {
+								logger.logp(Level.FINER, "NetServer", "onReceive", "Started to monitor blacklist");
+								schedule = getContext().system().scheduler().schedule(Duration.Zero(), Duration.create(1000, TimeUnit.MILLISECONDS), getSelf(), new CleanBlacklist(), getContext().system().dispatcher(), ActorRef.noSender());
+							}
 						}
 						else {
-							logger.logp(Level.FINER, "NetServer", "onReceive", "There was " + count + " invalid tokens. Incremented count for " + address);
+							logger.logp(Level.FINER, "NetServer", "onReceive", "There was " + count + " invalid tokens. Incremented fail count for " + address);
 							fails.put(address, count + 1);
 						}
 					}
 				}
 				logger.logp(Level.INFO, "NetServer", "onReceive", "Disconnected client with address " + address + ", reason: Invalid token");
-				channel.writeAndFlush(new SystemMessage("Invalid token"));
-				try {channel.close().sync();}
+				session.write(new SystemMessage("Invalid token"));
+				try {session.close(false).await();}
 				catch(InterruptedException ie) {
 					logger.throwing("NetServer", "onReceive", ie);
 				}
 			}
 			else {
-				logger.logp(Level.WARNING, "NetServer", "onReceive", "No client channel with id " + dc.getChannelId());
+				logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + dc.getSessionId());
 			}
 		}
-		else if(message instanceof ChannelMessage) {
-			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- ChannelMessage: " + message);
-			ChannelMessage cm = (ChannelMessage) message;
+		else if(message instanceof SessionMessage) {
+			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- SessionMessage: " + message);
+			SessionMessage cm = (SessionMessage) message;
 			String log = "Message: " + cm.getMessage().getClass().getName() + "\n";
 			for(Field field : cm.getMessage().getClass().getDeclaredFields()) {
 				try {
@@ -273,41 +270,68 @@ public class NetServer extends UntypedActor {
 				catch(IllegalAccessException iae) {}
 			}
 			logger.logp(Level.FINEST, "NetServer", "onReceive", log);
-			for(int channelId : cm.getChannelIds()) {
-				if(channels.get(channelId) != null) {
-					logger.logp(Level.FINER, "NetServer", "onReceive", "Message sent to client channel with id " + channelId);
-					channels.get(channelId).writeAndFlush(cm.getMessage());
+			for(int sessionId : cm.getSessionIds()) {
+				if(sessions.get(sessionId) != null) {
+					logger.logp(Level.FINER, "NetServer", "onReceive", "Message sent to client session with id " + sessionId);
+					sessions.get(sessionId).write(cm.getMessage());
 				}
 				else {
-					logger.logp(Level.WARNING, "NetServer", "onReceive", "No client channel with id " + channelId);
+					logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + sessionId);
 				}
 			}
+		}
+		else if(message instanceof CleanBlacklist) {
+			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- CleanBlacklist");
+			long now = (new Date()).getTime();
+			int count = 0;
+			List<InetAddress> expiredAddresses = new ArrayList<>();
+			for(Entry<InetAddress, Long> entry : bannedAddresses.entrySet()) {
+				if(entry.getValue() == null) {
+					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Expiration time for address " + entry.getKey() + " not found");
+					expiredAddresses.add(entry.getKey());
+				}
+				else if(entry.getValue() < now) {
+					logger.logp(Level.FINER, "NetServer", "onReceive", "Ban for address " + entry.getKey() + " is expired");
+					expiredAddresses.add(entry.getKey());
+				}
+				else {
+					logger.logp(Level.FINEST, "NetServer", "onReceive", "Ban for address " + entry.getKey() + " is valid for " + (entry.getValue() - now) + " ms");
+				}
+			}
+			for(InetAddress address : expiredAddresses) {
+				count++;
+				bannedAddresses.remove(address);
+				blacklist.unblock(address);
+			}
+			if(count > 0) logger.logp(Level.FINE, "NetServer", "onReceive", "Cleaned " + count + " expired bans");
+			if(bannedAddresses.isEmpty() && schedule.cancel())
+				logger.logp(Level.FINER, "NetServer", "onReceive", "Blacklist is empty, monitoring stopped");
 		}
 		else
 			unhandled(message);
 		logger.exiting("NetServer", "onReceive");
 	}
 	
-	public void addChannel(int channelId, Channel channel) {
-		logger.entering("NetServer", "addChannel");
-		logger.logp(Level.FINER, "NetServer", "addChannel", "Added channel with id " + channelId + " to channel list");
-		channels.put(channelId, channel);
-		logger.exiting("NetServer", "addChannel");
+	public void addSession(int sessionId, IoSession session) {
+		logger.entering("NetServer", "addSession");
+		logger.logp(Level.FINER, "NetServer", "addSession", "Added session with id " + sessionId + " to session list");
+		sessions.put(sessionId, session);
+		logger.exiting("NetServer", "addSession");
 	}
 	
-	public void removeChannel(int channelId) {
-		logger.entering("NetServer", "removeChannel");
-		logger.logp(Level.FINER, "NetServer", "removeChannel", "Removed channel with id " + channelId + " from channel list");
-		channels.remove(channelId);
-		ChannelDisconnected message = new ChannelDisconnected(channelId);
-		logger.logp(Level.FINER, "NetServer", "removeChannel", "ChannelDisconnected -> Enqueuer: " + message);
+	public void removeSession(int sessionId) {
+		logger.entering("NetServer", "removeSession");
+		logger.logp(Level.FINER, "NetServer", "removeSession", "Removed session with id " + sessionId + " from session list");
+		sessions.remove(sessionId);
+		SessionDisconnected message = new SessionDisconnected(sessionId);
+		logger.logp(Level.FINER, "NetServer", "removeSession", "SessionDisconnected -> Enqueuer: " + message);
 		enqueuer.tell(message, getSelf());
-		logger.exiting("NetServer", "removeChannel");
+		logger.exiting("NetServer", "removeSession");
 	}
 	
-	public void receive(int channelId, Message message) {
+	public void receive(int sessionId, Message message) {
 		logger.entering("NetServer", "receive");
-		ChannelMessage msg = new ChannelMessage(channelId, message);
+		SessionMessage msg = new SessionMessage(sessionId, message);
 		logger.logp(Level.FINER, "NetServer", "receive", "Message -> Enqueuer: " + msg);
 		String log = "Message: " + message.getClass().getName() + "\n";
 		for(Field field : message.getClass().getDeclaredFields()) {

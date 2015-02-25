@@ -13,42 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
+package org.mephi.griffin.actorcloud.enqueuer;
 
-import java.net.InetAddress;
+import akka.actor.ActorRef;
 
 /**
  *
  * @author Griffin
  */
-public class AllowConnection {
+public class SessionData {
 	
 	private String client;
-	private String token;
-	private InetAddress address;
+	private ActorRef actor;
 	
-	public AllowConnection() {}
-	
-	public AllowConnection(String client, String token, InetAddress address) {
+	public SessionData(String client, ActorRef actor) {
 		this.client = client;
-		this.token = token;
-		this.address = address;
+		this.actor = actor;
 	}
 	
 	public String getClient() {
 		return client;
 	}
 	
-	public String getToken() {
-		return token;
-	}
-	
-	public InetAddress getAddress() {
-		return address;
+	public ActorRef getActor() {
+		return actor;
 	}
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", token " + token + ", address " + address;
+		return "Client " + client + ", actor " + actor;
 	}
 }

@@ -13,12 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer;
+package org.mephi.griffin.actorcloud.netserver;
 
 /**
  *
  * @author Griffin
  */
-public class CheckTokens {
+public class SessionDisconnected {
 	
+	private int sessionId;
+	
+	public SessionDisconnected() {}
+	
+	public SessionDisconnected(int sessionId) {
+		this.sessionId = sessionId;
+	}
+	
+	public int getSessionId() {
+		return sessionId;
+	}
+	
+	@Override
+	public String toString() {
+		return "Session id " + sessionId;
+	}
 }

@@ -13,30 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer;
+package org.mephi.griffin.actorcloud.storage;
 
-import java.net.InetAddress;
+import com.mongodb.BasicDBObject;
 
-/**
- *
- * @author Griffin
- */
-public class AllowAddress {
+public abstract class Query {
 	
-	private InetAddress address;
-	
-	public AllowAddress() {}
-	
-	public AllowAddress(InetAddress address) {
-		this.address = address;
-	}
-	
-	public InetAddress getAddress() {
-		return address;
-	}
-	
-	@Override
-	public String toString() {
-		return "Address " + address;
-	}
+	abstract BasicDBObject getDoc();
 }

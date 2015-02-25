@@ -15,7 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.manager;
 
-import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.List;
 
 /**
@@ -24,42 +24,36 @@ import java.util.List;
  */
 public class AuthConfirmation {
 	
-	private int channelId;
+	private int sessionId;
 	private String token;
-	private List<InetAddress> addresses;
-	private int port;
+	private List<InetSocketAddress> addresses;
 	
 	public AuthConfirmation() {}
 	
-	public AuthConfirmation(int channelId, String token, List<InetAddress> addresses, int port) {
-		this.channelId = channelId;
+	public AuthConfirmation(int sessionId, String token, List<InetSocketAddress> addresses) {
+		this.sessionId = sessionId;
 		this.token = token;
 		this.addresses = addresses;
-		this.port = port;
 	}
 	
-	public int getChannelId() {
-		return channelId;
+	public int getSessionId() {
+		return sessionId;
 	}
 	
 	public String getToken() {
 		return token;
 	}
 	
-	public List<InetAddress> getAddresses() {
+	public List<InetSocketAddress> getAddresses() {
 		return addresses;
-	}
-	
-	public int getPort() {
-		return port;
 	}
 	
 	@Override
 	public String toString() {
-		String res = "For client on channel id " + channelId + ", access token " + token + ", net server ";
+		String res = "For client on session id " + sessionId + ", access token " + token + ", net server ";
 		for(int i = 0; i < addresses.size() - 1; i++)
-			res += addresses.get(i).getHostAddress() + ":" + port + ", ";
-		res += addresses.get(addresses.size() - 1).getHostAddress() + ":" + port;
+			res += addresses.get(i).getAddress().getHostAddress() + ":" + addresses.get(i).getPort() + ", ";
+		res += addresses.get(addresses.size() - 1).getAddress().getHostAddress() + ":" + addresses.get(addresses.size() - 1).getPort();
 		return res;
 	}
 }

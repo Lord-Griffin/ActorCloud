@@ -21,7 +21,6 @@ import java.util.logging.Logger;
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IoSession;
-import org.apache.mina.filter.ssl.SslFilter;
 import org.mephi.griffin.actorcloud.util.Coder;
 
 /**

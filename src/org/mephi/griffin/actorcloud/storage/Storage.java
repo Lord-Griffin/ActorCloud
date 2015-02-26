@@ -25,6 +25,7 @@ public class Storage {
 	private ActorRef storage;
 	private String name;
 	private ActorRef client;
+	private final Object lock;
 	private int requestId;
 	
 	public Storage(ActorRef storage, ActorRef client) {
@@ -33,12 +34,17 @@ public class Storage {
 		this.storage = storage;
 		name = "Storage(" + client.path().name() + ")";
 		this.client = client;
+		lock = new Object();
 		requestId = 1;
 		logger.exiting(name, "Constructor");
 	}
 	
 	public int get(String collection, Query query, String[] sort) {
 		logger.entering(name, "get");
+		int id = requestId;
+		synchronized(lock) {
+			requestId++;
+		}
 		try {
 			BasicDBObject queryDoc = query.getDoc();
 			BasicDBObject sortDoc = new BasicDBObject();
@@ -49,7 +55,7 @@ public class Storage {
 				}
 			}
 			else sortDoc = null;
-			Get msg = new Get(requestId, collection, queryDoc, sortDoc);
+			Get msg = new Get(id, collection, queryDoc, sortDoc);
 			logger.logp(Level.FINER, name, "get", "Get -> StorageActor: " + msg);
 			storage.tell(msg, client);
 		}
@@ -58,14 +64,18 @@ public class Storage {
 			throw iae;
 		}
 		logger.exiting(name, "get");
-		return requestId++;
+		return id;
 	}
 	
 	public int put(String collection, Entity entity) {
 		logger.entering(name, "put");
+		int id = requestId;
+		synchronized(lock) {
+			requestId++;
+		}
 		try {
 			BasicDBObject doc = entity.getDoc();
-			Insert msg = new Insert(requestId, collection, doc);
+			Insert msg = new Insert(id, collection, doc);
 			logger.logp(Level.FINER, name, "put", "Put -> StorageActor: " + msg);
 			storage.tell(msg, client);
 		}
@@ -74,16 +84,20 @@ public class Storage {
 			throw iae;
 		}
 		logger.exiting(name, "put");
-		return requestId++;
+		return id++;
 	}
 	
 	public int put(String collection, Entity[] entities) {
 		logger.entering(name, "put");
+		int id = requestId;
+		synchronized(lock) {
+			requestId++;
+		}
 		BasicDBObject[] docs = new BasicDBObject[entities.length];
 		try {
 			for(int i = 0; i < entities.length; i++)
 				docs[i] =  entities[i].getDoc();
-			Insert msg = new Insert(requestId, collection, docs);
+			Insert msg = new Insert(id, collection, docs);
 			logger.logp(Level.FINER, name, "put", "Put -> StorageActor: " + msg);
 			storage.tell(msg, client);
 		}
@@ -92,14 +106,18 @@ public class Storage {
 			throw iae;
 		}
 		logger.exiting(name, "put");
-		return requestId++;
+		return id++;
 	}
 	
 	public int remove(String collection, Query query) {
 		logger.entering(name, "remove");
+		int id = requestId;
+		synchronized(lock) {
+			requestId++;
+		}
 		try {
 			BasicDBObject queryDoc = query.getDoc();
-			Remove msg = new Remove(requestId, collection, queryDoc);
+			Remove msg = new Remove(id, collection, queryDoc);
 			logger.logp(Level.FINER, name, "remove", "Remove -> StorageActor: " + msg);
 			storage.tell(msg, client);
 		}
@@ -108,15 +126,19 @@ public class Storage {
 			throw iae;
 		}
 		logger.exiting(name, "remove");
-		return requestId++;
+		return id++;
 	}
 	
 	public int update(String collection, Query query, Entity fields) {
 		logger.entering(name, "update");
+		int id = requestId;
+		synchronized(lock) {
+			requestId++;
+		}
 		try {
 			BasicDBObject queryDoc = query.getDoc();
 			BasicDBObject fieldsDoc = fields.getDoc();
-			Update msg = new Update(requestId, collection, queryDoc, fieldsDoc);
+			Update msg = new Update(id, collection, queryDoc, fieldsDoc);
 			logger.logp(Level.FINE, name, "update", "Update -> MessageActor: " + msg);
 			storage.tell(msg, client);
 		}
@@ -125,6 +147,6 @@ public class Storage {
 			throw iae;
 		}
 		logger.exiting(name, "update");
-		return requestId++;
+		return id++;
 	}
 }

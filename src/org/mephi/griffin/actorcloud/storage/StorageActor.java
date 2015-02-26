@@ -15,6 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.storage;
 
+import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
@@ -38,8 +39,9 @@ public class StorageActor extends UntypedActor {
 	private List<InetSocketAddress> addresses;
 	private MongoClient client;
 	private DB db;
+	private ActorRef stat;
 	
-	public StorageActor(List<InetSocketAddress> addresses) {
+	public StorageActor(List<InetSocketAddress> addresses, ActorRef stat) {
 		logger.entering("StorageActor", "Constructor");
 		String log = "DB addresses: localhost:27017";
 		if(addresses != null) {
@@ -49,6 +51,7 @@ public class StorageActor extends UntypedActor {
 		logger.logp(Level.FINER, "StorageActor", "Constructor", log);
 		client = null;
 		this.addresses = addresses;
+		this.stat = stat;
 		logger.exiting("StorageActor", "Constructor");
 	}
 
@@ -179,41 +182,24 @@ public class StorageActor extends UntypedActor {
 			logger.logp(Level.FINER, "StorageActor", "onReceive", "StorageResult -> " + getSender().path().name() + ": " + msg);
 			getSender().tell(msg, getSelf());
 		}
+		else unhandled(message);
+		logger.exiting("StorageActor", "onReceive");
 	}
 	
 	public static void main(String[] args) {		
 		try {
 			MongoClient client = new MongoClient("localhost", 27017);
 			DB db = client.getDB("actorcloud");
-			BasicDBObject obj = new BasicDBObject();
 			MessageDigest md = MessageDigest.getInstance("SHA-512");
-			byte[] hash = md.digest("admin".getBytes());
-			obj.append("name", "admin");
-			obj.append("hash", hash);
-			obj.append("messageHandler", "messageHandler");
-			obj.append("childHandler", "childHandler");
-			db.getCollection("clients").insert(obj);
-			obj = new BasicDBObject();
-			hash = md.digest("user1".getBytes());
-			obj.append("name", "user1");
-			obj.append("hash", hash);
-			obj.append("messageHandler", "messageHandler");
-			obj.append("childHandler", "childHandler");
-			db.getCollection("clients").insert(obj);
-			obj = new BasicDBObject();
-			hash = md.digest("user2".getBytes());
-			obj.append("name", "user2");
-			obj.append("hash", hash);
-			obj.append("messageHandler", "messageHandler");
-			obj.append("childHandler", "childHandler");
-			db.getCollection("clients").insert(obj);
-			obj = new BasicDBObject();
-			hash = md.digest("convolution".getBytes());
-			obj.append("name", "convolution");
-			obj.append("hash", hash);
-			obj.append("messageHandler", "messageHandler");
-			obj.append("childHandler", "childHandler");
-			db.getCollection("clients").insert(obj);
+			for(int i = 0; i < 30; i++) {
+				BasicDBObject obj = new BasicDBObject();
+				byte[] hash = md.digest(("netsend" + i).getBytes());
+				obj.append("name", "netsend" + i);
+				obj.append("hash", hash);
+				obj.append("messageHandler", "actorcloudnettest.StringMessageHandler");
+				obj.append("childHandler", "");
+				db.getCollection("clients").insert(obj);
+			}
 		}
 		catch (UnknownHostException | NoSuchAlgorithmException ex) {
 			Logger.getLogger(StorageActor.class.getName()).log(Level.SEVERE, null, ex);

@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.mephi.griffin.actorcloud.JarClassLoader;
+import org.mephi.griffin.actorcloud.util.JarClassLoader;
 import org.mephi.griffin.actorcloud.client.ClientActor;
 import org.mephi.griffin.actorcloud.authentication.AuthDecline;
 import org.mephi.griffin.actorcloud.authentication.AuthServer;

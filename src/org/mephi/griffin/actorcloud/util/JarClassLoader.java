@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.mephi.griffin.actorcloud;
+package org.mephi.griffin.actorcloud.util;
 
 import java.io.Closeable;
 import java.io.File;

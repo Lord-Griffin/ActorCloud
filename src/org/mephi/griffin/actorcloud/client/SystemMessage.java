@@ -36,4 +36,8 @@ public class SystemMessage extends Message {
 	public String getMessage() {
 		return message;
 	}
+	
+	public String toString() {
+		return "System Message: \"" + message + "\"";
+	}
 }

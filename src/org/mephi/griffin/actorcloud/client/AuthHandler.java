@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IoSession;
@@ -20,14 +21,24 @@ import org.apache.mina.core.session.IoSession;
  */
 public class AuthHandler extends IoHandlerAdapter {
 	
+	private static final Logger logger = Logger.getLogger(AuthHandler.class.getName());
 	Connection conn;
 	
 	public AuthHandler(Connection conn) {
+		logger.entering("AuthHandler", "Constructor", conn);
 		this.conn = conn;
+		logger.exiting("AuthHandler", "Constructor");
+	}
+	
+	@Override
+	public void sessionOpened(IoSession session) {
+		logger.entering("AuthHandler", "sessionOpened", session);
+		logger.exiting("AuthHandler", "sessionOpened");
 	}
 	
 	@Override
 	public void messageReceived(IoSession session, Object message) {
+		logger.entering("AuthHandler", "messageReceived", new Object[]{session, message});
 		if(message instanceof IoBuffer) {
 			IoBuffer buf = (IoBuffer) message;
 			int error = buf.getInt();
@@ -55,11 +66,14 @@ public class AuthHandler extends IoHandlerAdapter {
 				conn.setToken(token, addresses);
 			}
 		}
+		logger.exiting("AuthHandler", "messageReceived");
 	}
 	
 	@Override
 	public void exceptionCaught(IoSession session, Throwable cause) {
-		cause.printStackTrace(System.err);
+		logger.entering("AuthHandler", "exceptionCaught", new Object[]{session, cause});
+		logger.throwing("AuthHandler", "excpetionCaught", cause);
 		session.close(true);
+		logger.exiting("AuthHandler", "exceptionCaught");
 	}
 }

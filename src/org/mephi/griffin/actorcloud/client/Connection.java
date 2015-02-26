@@ -16,7 +16,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
@@ -41,7 +40,7 @@ import org.apache.mina.transport.socket.nio.NioSocketConnector;
  */
 public class Connection {
 	static SSLContext sslContext = null;
-	static SocketConnector connector = null;
+	SocketConnector connector = null;
 	String authHost = null;
 	int authPort = 0;
 	String login = null;
@@ -70,13 +69,11 @@ public class Connection {
 				Logger.getLogger(Connection.class.getName()).log(Level.SEVERE, null, ex);
 			}
 		}
-		if(connector == null) {
-			connector = new NioSocketConnector();
-			DefaultIoFilterChainBuilder chain = connector.getFilterChain();
-			SslFilter sslFilter = new SslFilter(sslContext);
-			sslFilter.setUseClientMode(true);
-			chain.addLast("sslFilter", sslFilter);
-		}
+		connector = new NioSocketConnector();
+		DefaultIoFilterChainBuilder chain = connector.getFilterChain();
+		SslFilter sslFilter = new SslFilter(sslContext);
+		sslFilter.setUseClientMode(true);
+		chain.addLast("sslFilter", sslFilter);
 	}
 	
 	public Connection(String host, int port, String login, String pass, MessageListener messageListener) throws NoSuchAlgorithmException, SSLException {
@@ -91,12 +88,12 @@ public class Connection {
 	}
 	
 	public int connect() throws InterruptedException {
-		if(connector == null) {
-			throw new IllegalStateException("Couldn't establish connection: Connection initialized with errors");
-		}
 		if(authHost == null || authPort == 0 || login == null || hash == null) {
 			throw new IllegalArgumentException("Not all arguments set. Use connect(host, port, login, pass)");
 		}
+		while(connector.isActive());
+		DefaultIoFilterChainBuilder chain = connector.getFilterChain();
+		if(chain.contains("serializationFilter")) chain.remove("serializationFilter");
 		connector.setHandler(new AuthHandler(this));
 		session = connector.connect(new InetSocketAddress(authHost, authPort)).await().getSession();
 		IoBuffer buf = IoBuffer.allocate(login.getBytes().length + hash.length + 8);
@@ -111,15 +108,14 @@ public class Connection {
 			lock.wait();
 		}
 		SocketAddress localAddress = session.getLocalAddress();
-		session.close(false).await();
+		session.getCloseFuture().await();
 		session = null;
 		if(token == null) {
 			return 1;
 		}
-		DefaultIoFilterChainBuilder chain = connector.getFilterChain();
+		while(connector.isActive());
 		chain.addLast("serializationFilter", new ProtocolCodecFilter(new ObjectSerializationCodecFactory()));
 		connector.setHandler(new NetHandler(messageListener));
-		Collections.reverse(netAddresses);
 		Iterator<InetSocketAddress> iterator = netAddresses.iterator();
 		while(session == null && iterator.hasNext()) {
 			try {

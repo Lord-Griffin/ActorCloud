@@ -39,9 +39,8 @@ public class StorageActor extends UntypedActor {
 	private List<InetSocketAddress> addresses;
 	private MongoClient client;
 	private DB db;
-	private ActorRef stat;
 	
-	public StorageActor(List<InetSocketAddress> addresses, ActorRef stat) {
+	public StorageActor(List<InetSocketAddress> addresses) {
 		logger.entering("StorageActor", "Constructor");
 		String log = "DB addresses: localhost:27017";
 		if(addresses != null) {
@@ -51,7 +50,6 @@ public class StorageActor extends UntypedActor {
 		logger.logp(Level.FINER, "StorageActor", "Constructor", log);
 		client = null;
 		this.addresses = addresses;
-		this.stat = stat;
 		logger.exiting("StorageActor", "Constructor");
 	}
 
@@ -191,7 +189,7 @@ public class StorageActor extends UntypedActor {
 			MongoClient client = new MongoClient("localhost", 27017);
 			DB db = client.getDB("actorcloud");
 			MessageDigest md = MessageDigest.getInstance("SHA-512");
-			for(int i = 0; i < 30; i++) {
+			for(int i = 30; i < 50; i++) {
 				BasicDBObject obj = new BasicDBObject();
 				byte[] hash = md.digest(("netsend" + i).getBytes());
 				obj.append("name", "netsend" + i);

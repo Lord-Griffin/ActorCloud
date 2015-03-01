@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Griffin.
+ * Copyright 2015 Griffin.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer;
+package org.mephi.griffin.actorcloud.client;
 
-public class AddSession {
-	private int id;
+import org.mephi.griffin.actorcloud.util.Coder;
+
+/**
+ *
+ * @author Griffin
+ */
+public class AuthRequest implements Message {
+	private String login;
+	private byte[] hash;
 	
-	public AddSession() {}
+	public AuthRequest() {}
 	
-	public AddSession(int id) {
-		this.id = id;
+	public AuthRequest(String login, byte[] hash) {
+		this.login = login;
+		this.hash = hash;
 	}
 	
-	public int getId() {
-		return id;
+	public String getLogin() {
+		return login;
+	}
+	
+	public byte[] getHash() {
+		return hash;
 	}
 	
 	@Override
 	public String toString() {
-		return "Session id " + id;
+		return "Login: " + login + ", hash: " + Coder.toHexString(hash);
 	}
 }

@@ -5,16 +5,10 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
-import java.io.IOException;
 import java.io.Serializable;
 
 /**
  *
  * @author Griffin
  */
-public abstract class Message implements Serializable {
-	
-	public Message() {}
-	
-	public abstract byte[] getData() throws IOException;	
-}
+public interface Message extends Serializable {}

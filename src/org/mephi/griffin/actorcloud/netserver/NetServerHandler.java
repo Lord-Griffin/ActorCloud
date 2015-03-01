@@ -15,12 +15,15 @@
  */
 package org.mephi.griffin.actorcloud.netserver;
 
+import akka.actor.ActorRef;
 import java.net.InetSocketAddress;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IoSession;
 import org.mephi.griffin.actorcloud.client.Message;
+import org.mephi.griffin.actorcloud.common.AddSession;
+import org.mephi.griffin.actorcloud.common.RemoveSession;
 
 /**
  *
@@ -28,10 +31,10 @@ import org.mephi.griffin.actorcloud.client.Message;
  */
 public class NetServerHandler extends IoHandlerAdapter {
 	private static final Logger logger = Logger.getLogger(NetServerHandler.class.getName());
-	private final NetServer server;
+	private final ActorRef server;
 	private int sessionId = 0;
 	
-	public NetServerHandler(NetServer server) {
+	public NetServerHandler(ActorRef server) {
 		logger.entering("NetServerHandler", "Constructor");
 		this.server = server;
 		sessionId = 0;
@@ -40,38 +43,47 @@ public class NetServerHandler extends IoHandlerAdapter {
 	
 	@Override
 	public void sessionOpened(IoSession session) {
-		logger.entering("NetServerHandler", "sessionOpened");
-		logger.logp(Level.FINE, "NetServerHandler", "sessionOpened", "Connected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + sessionId);
+		logger.entering("NetServerHandler session id " + sessionId, "sessionOpened");
+		logger.logp(Level.FINE, "NetServerHandler session id " + sessionId, "sessionOpened", "Connected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress());
 		session.setAttribute("ID", sessionId);
-		server.addSession(sessionId++, session);
-		logger.exiting("NetServerHandler", "sessionOpened");
+		AddSession msg = new AddSession(sessionId++, session);
+		logger.logp(Level.FINER, "NetServerHandler session id " + sessionId, "sessionOpened", "AddSession -> NetServer: {0}", msg);
+		server.tell(msg, null);
+		logger.exiting("NetServerHandler session id " + session.getAttribute("ID"), "sessionOpened");
 	}
 	
 	@Override
 	public void sessionClosed(IoSession session) {
-		logger.entering("NetServerHandler", "sessionClosed");
-		logger.logp(Level.FINE, "NetServerHandler", "sessionClosed", "Disconnected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + session.getAttribute("ID"));
-		server.removeSession((int) session.getAttribute("ID"));
-		logger.exiting("NetServerHandler", "sessionClosed");
+		logger.entering("NetServerHandler session id " + session.getAttribute("ID"), "sessionClosed");
+		session.close(true);
+		logger.logp(Level.FINE, "NetServerHandler session id " + session.getAttribute("ID"), "sessionClosed", "Disconnected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress());
+		RemoveSession msg = new RemoveSession((int) session.getAttribute("ID"));
+		logger.logp(Level.FINER, "NetServerHandler session id " + session.getAttribute("ID"), "sessionClosed", "RemoveSession -> NetServer: {0}", msg);
+		server.tell(msg, null);
+		logger.exiting("NetServerHandler session id " + session.getAttribute("ID"), "sessionClosed");
 	}
 	
 	@Override
 	public void messageReceived(IoSession session, Object message) {
-		logger.entering("NetServerHandler", "messageReceived");
-		if(!(message instanceof Message)) logger.logp(Level.FINER, "NetServerHandler", "messageReceived", "Discarded unexpected object " + message.getClass().getName());
+		logger.entering("NetServerHandler session id " + session.getAttribute("ID"), "messageReceived");
+		if(!(message instanceof Message)) logger.logp(Level.FINER, "NetServerHandler session id " + session.getAttribute("ID"), "messageReceived", "Discarded unexpected object " + message.getClass().getName());
 		else {
-			logger.logp(Level.FINE, "NetServerHandler", "messageReceived", "Message " + message.getClass().getName() + " from client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + session.getAttribute("ID"));
-			server.receive((int) session.getAttribute("ID"), (Message) message);
+			logger.logp(Level.FINE, "NetServerHandler session id " + session.getAttribute("ID"), "messageReceived", "Message " + message.getClass().getName() + " from client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress());
+			SessionMessage msg = new SessionMessage((int) session.getAttribute("ID"), (Message) message, true);
+			logger.logp(Level.FINE, "NetServerHandler session id " + session.getAttribute("ID"), "messageReceived", "SessionMessage -> NetServer: {0}", msg);
+			server.tell(msg, server);
 		}
-		logger.exiting("NetServerHandler", "messageReceived");
+		logger.exiting("NetServerHandler session id " + session.getAttribute("ID"), "messageReceived");
 	}
 		
 	@Override
 	public void exceptionCaught(IoSession session, Throwable cause) {
-		logger.entering("NetServerHandler", "exceptionCaught");
-		logger.throwing("NetServerHandler", "exceptionCaught", cause);
+		logger.entering("NetServerHandler session id " + session.getAttribute("ID"), "exceptionCaught");
+		logger.throwing("NetServerHandler session id " + session.getAttribute("ID"), "exceptionCaught", cause);
 		session.close(true);
-		server.removeSession((int) session.getAttribute("ID"));
-		logger.exiting("NetServerHandler", "exceptionCaught");
+		RemoveSession msg = new RemoveSession((int) session.getAttribute("ID"));
+		logger.logp(Level.FINER, "NetServerHandler session id " + sessionId, "sessionOpened", "RemoveSession -> NetServer: {0}", msg);
+		server.tell(msg, null);
+		logger.exiting("NetServerHandler session id " + session.getAttribute("ID"), "exceptionCaught");
 	}
 }

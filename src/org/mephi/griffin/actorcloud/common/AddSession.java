@@ -13,23 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer;
+package org.mephi.griffin.actorcloud.common;
 
-public class RemoveSession {
-	private int id;
+import org.apache.mina.core.session.IoSession;
+
+public class AddSession {
+	private int sessionId;
+	private IoSession session;
 	
-	public RemoveSession() {}
+	public AddSession() {}
 	
-	public RemoveSession(int id) {
-		this.id = id;
+	public AddSession(int sessionId, IoSession session) {
+		this.sessionId = sessionId;
+		this.session = session;
 	}
 	
-	public int getId() {
-		return id;
+	public int getSessionId() {
+		return sessionId;
+	}
+	
+	public IoSession getSession() {
+		return session;
 	}
 	
 	@Override
 	public String toString() {
-		return "Session id " + id;
+		return "Session id " + sessionId + ", " + session;
 	}
 }

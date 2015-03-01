@@ -37,7 +37,7 @@ public class ActorCloud {
 	 * @throws java.net.UnknownHostException
 	 */
 	public static void main(String[] args) throws IOException {
-		Logger.getLogger("org.mephi.griffin.actorcloud").setLevel(Level.OFF);
+		Logger.getLogger("org.mephi.griffin.actorcloud").setLevel(Level.ALL);
 		Handler handler = new FileHandler("%h/system%g.log", 0, 1);
 		handler.setFormatter(new SimpleFormatter());
 		Logger.getLogger("org.mephi.griffin.actorcloud").addHandler(handler);

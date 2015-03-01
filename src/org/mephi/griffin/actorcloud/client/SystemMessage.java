@@ -5,15 +5,11 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-
 /**
  *
  * @author Griffin
  */
-public class SystemMessage extends Message {
+public class SystemMessage implements Message {
 	
 	private String message;
 	
@@ -23,14 +19,6 @@ public class SystemMessage extends Message {
 	
 	public SystemMessage(String message) {
 		this.message = message;
-	}
-	
-	@Override
-	public byte[] getData() throws IOException {
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		DataOutputStream dos = new DataOutputStream(baos);
-		dos.writeBytes(message);
-		return baos.toByteArray();
 	}
 	
 	public String getMessage() {

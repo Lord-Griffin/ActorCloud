@@ -15,24 +15,16 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
-import org.apache.mina.core.session.IoSession;
-
 /**
  *
  * @author Griffin
  */
-public class Connection {
-	private IoSession session;
+public class TokenResponse implements Message {
 	
-	protected Connection(IoSession session) {
-		this.session = session;
-	}
+	public TokenResponse() {}
 	
-	public SendFuture send(Message message) {
-		return new SendFuture(session.write(message));
-	}
-	
-	public CloseFuture close(boolean immediately) {
-		return new CloseFuture(session.close(immediately));
+	@Override
+	public String toString() {
+		return "Token accepted";
 	}
 }

@@ -13,31 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.admin;
+package org.mephi.griffin.actorcloud.client;
 
-import java.io.IOException;
-import org.mephi.griffin.actorcloud.client.Message;
+import java.net.InetSocketAddress;
+import java.util.List;
 
 /**
  *
  * @author Griffin
  */
-public class ErrorMessage extends Message {
+public class AuthResponse implements Message {
+	private String token;
+	private List<InetSocketAddress> addresses;
 	
-	private String message;
+	public AuthResponse() {}
 	
-	public ErrorMessage() {}
-	
-	public ErrorMessage(String message) {
-		this.message = message;
+	public AuthResponse(String token, List<InetSocketAddress> addresses) {
+		this.token = token;
+		this.addresses = addresses;
 	}
 	
-	public String getMessage() {
-		return message;
+	public String getToken() {
+		return token;
 	}
-
+	
+	public List<InetSocketAddress> getAddresses() {
+		return addresses;
+	}
+	
 	@Override
-	public byte[] getData() throws IOException {
-		return new byte[1];
+	public String toString() {
+		return "Token: " + token + ", addresses: " + addresses;
 	}
 }

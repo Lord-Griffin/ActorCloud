@@ -30,8 +30,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
-import org.mephi.griffin.actorcloud.enqueuer.AddSession;
-import org.mephi.griffin.actorcloud.enqueuer.RemoveSession;
+import org.mephi.griffin.actorcloud.common.AddSession;
+import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
 import org.mephi.griffin.actorcloud.manager.ClientFindResult;
 import org.mephi.griffin.actorcloud.netserver.SessionMessage;
@@ -135,23 +135,23 @@ public class ClientActor extends UntypedActor {
 		if(message instanceof AddSession) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- AddSession: " + message);
 			AddSession ac = (AddSession) message;
-			if(sessions.contains(ac.getId())) {
-				logger.logp(Level.SEVERE, name, "onReceive", "Client session id " + ac.getId() + " already present in list");
+			if(sessions.contains(ac.getSessionId())) {
+				logger.logp(Level.SEVERE, name, "onReceive", "Client session id " + ac.getSessionId() + " already present in list");
 			}
 			else {
-				logger.logp(Level.FINER, name, "onReceive", "Added client session id " + ac.getId() + " to list");
-				sessions.add(ac.getId());
+				logger.logp(Level.FINER, name, "onReceive", "Added client session id " + ac.getSessionId() + " to list");
+				sessions.add(ac.getSessionId());
 			}
 		}
 		else if(message instanceof RemoveSession) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- RemoveSession: " + message);
 			RemoveSession rc = (RemoveSession) message;
-			if(!sessions.contains(rc.getId())) {
-				logger.logp(Level.SEVERE, name, "onReceive", "Client session id " + rc.getId() + " not found in list");
+			if(!sessions.contains(rc.getSessionId())) {
+				logger.logp(Level.SEVERE, name, "onReceive", "Client session id " + rc.getSessionId() + " not found in list");
 			}
 			else {
-				logger.logp(Level.FINER, name, "onReceive", "Removed client session id " + rc.getId() + " from list");
-				sessions.remove(new Integer(rc.getId()));
+				logger.logp(Level.FINER, name, "onReceive", "Removed client session id " + rc.getSessionId() + " from list");
+				sessions.remove(new Integer(rc.getSessionId()));
 			}
 		}
 		else if(message instanceof StorageResult) {
@@ -165,14 +165,14 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
+				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()), false);
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
 			}
 		}
 		else if(message instanceof InitFail) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- InitFail: " + message);
-			SessionMessage msg = new SessionMessage(sessions, new SystemMessage(((InitFail) message).getError()));
+			SessionMessage msg = new SessionMessage(sessions, new SystemMessage(((InitFail) message).getError()), false);
 			logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 			netServer.tell(msg, getSelf());
 		}
@@ -188,7 +188,7 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
+				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()), false);
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
 			}
@@ -221,14 +221,14 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
+				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()), false);
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
 			}
 		}
 		else if(message instanceof String) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- String: " + message);
-			SessionMessage msg = new SessionMessage(sessions, new SystemMessage((String) message));
+			SessionMessage msg = new SessionMessage(sessions, new SystemMessage((String) message), false);
 			logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 			netServer.tell(msg, getSelf());
 		}
@@ -238,7 +238,7 @@ public class ClientActor extends UntypedActor {
 	
 	public void sendClient(Message message) {
 		logger.entering(name, "sendClient");
-		SessionMessage msg = new SessionMessage(sessions, message);
+		SessionMessage msg = new SessionMessage(sessions, message, false);
 		logger.logp(Level.FINE, name, "sendClient", "SessionMessage -> NetServer: " + msg);
 		String log = "Message: " + message.getClass().getName() + "\n";
 		for(Field field : message.getClass().getDeclaredFields()) {
@@ -279,12 +279,7 @@ public class ClientActor extends UntypedActor {
 		childs = new ActorRef[count];
 		logger.logp(Level.FINE, name, "createChilds", "Creating " + count + " childs");
 		for(int i = 0; i < count; i++) {
-			childs[i] = getContext().actorOf(Props.create(ChildActor.class, cl), "" + i);
-			ActorRefMessage msg = new ActorRefMessage(ActorRefMessage.STORAGE, storage);
-			logger.logp(Level.FINER, name, "createChilds", "ActorRefMessage -> " + childs[i] + ": " + msg);
-			childs[i].tell(msg, getSelf());
-			logger.logp(Level.FINER, name, "createChilds", "Child handler name -> " + childs[i] + ": " + childHandlerName);
-			childs[i].tell(childHandlerName, getSelf());
+			childs[i] = getContext().actorOf(Props.create(ChildActor.class, cl, storage, childHandlerName), "" + i);
 		}
 		logger.exiting(name, "createChilds");
 	}

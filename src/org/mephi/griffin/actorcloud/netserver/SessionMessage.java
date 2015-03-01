@@ -25,20 +25,27 @@ import org.mephi.griffin.actorcloud.client.Message;
  */
 public class SessionMessage {
 	
+	private boolean inbound;
 	private List<Integer> sessionIds;
 	private Message message;
 	
 	public SessionMessage() {}
 	
-	public SessionMessage(int sessionId, Message message) {
+	public SessionMessage(int sessionId, Message message, boolean inbound) {
 		sessionIds = new ArrayList<>();
 		sessionIds.add(sessionId);
 		this.message = message;
+		this.inbound = inbound;
 	}
 	
-	public SessionMessage(List<Integer> sessionIds, Message message) {
+	public SessionMessage(List<Integer> sessionIds, Message message, boolean inbound) {
 		this.sessionIds = sessionIds;
 		this.message = message;
+		this.inbound = inbound;
+	}
+	
+	public boolean isInbound() {
+		return inbound;
 	}
 	
 	public List<Integer> getSessionIds() {
@@ -51,7 +58,10 @@ public class SessionMessage {
 	
 	@Override
 	public String toString() {
-		String res = "Message to/from sessions with ids ";
+		String res = "Message ";
+		if(inbound) res += "from ";
+		else res += "to ";
+		res += "sessions with ids ";
 		for(int i = 0; i < sessionIds.size() - 1; i++) res += sessionIds.get(i) + ", ";
 		res += sessionIds.get(sessionIds.size() - 1) + ": " + message.getClass().getName();
 		return res;

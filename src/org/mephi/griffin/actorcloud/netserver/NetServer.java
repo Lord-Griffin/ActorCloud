@@ -55,10 +55,11 @@ import org.apache.mina.filter.firewall.BlacklistFilter;
 import org.apache.mina.filter.ssl.SslFilter;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
-import org.mephi.griffin.actorcloud.client.Message;
-import org.mephi.griffin.actorcloud.client.SystemMessage;
+import org.mephi.griffin.actorcloud.client.ErrorMessage;
+import org.mephi.griffin.actorcloud.common.AddSession;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.RegisterServer;
+import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
 import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
@@ -104,11 +105,11 @@ public class NetServer extends UntypedActor {
 		logger.logp(Level.FINE, "NetServer", "preStart", "Network server starts");
 		try {
 			KeyStore keyStore = KeyStore.getInstance("jks");
-			keyStore.load(new FileInputStream("D:\\server.jks"), "antharas".toCharArray());
+			keyStore.load(new FileInputStream("D:\\server.jks"), "abcdef".toCharArray());
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
 			kmf.init(keyStore, "antharas".toCharArray());
 			KeyStore trustStore = KeyStore.getInstance("jks");
-			trustStore.load(new FileInputStream("D:\\ca.jks"), "antharas".toCharArray());
+			trustStore.load(new FileInputStream("D:\\ca.jks"), "abcdef".toCharArray());
 			TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
 			tmf.init(trustStore);
 			SSLContext sslContext = SSLContext.getInstance("SSL");
@@ -124,7 +125,7 @@ public class NetServer extends UntypedActor {
 			sslFilter.setUseClientMode(false);
 			chain.addLast("sslFilter", sslFilter);
 			chain.addLast("serializationFilter", new ProtocolCodecFilter(new ObjectSerializationCodecFactory(cl)));
-			acceptor.setHandler(new NetServerHandler(this));
+			acceptor.setHandler(new NetServerHandler(getSelf()));
 			acceptor.bind(addresses);
 			ServerInfo info;
 			String log = "Network server is listening on: ";
@@ -174,14 +175,16 @@ public class NetServer extends UntypedActor {
 	@Override
 	public void postStop() throws Exception {
 		logger.entering("NetServer", "postStop");
-		acceptor.unbind();
-		for(Entry<Integer, IoSession> entry : sessions.entrySet()) {
-			try{entry.getValue().close(false).await();}
-			catch(InterruptedException ie) {
-				logger.throwing("NetServer", "postStop", ie);
+		if(acceptor != null) {
+			acceptor.unbind();
+			for(Entry<Integer, IoSession> entry : sessions.entrySet()) {
+				try{entry.getValue().close(false).await();}
+				catch(InterruptedException ie) {
+					logger.throwing("NetServer", "postStop", ie);
+				}
 			}
+			acceptor.dispose();
 		}
-		acceptor.dispose();
 		logger.logp(Level.INFO, "NetServer", "postStop", "Network server stopped");
 		logger.exiting("NetServer", "postStop");
 	}
@@ -246,7 +249,7 @@ public class NetServer extends UntypedActor {
 					}
 				}
 				logger.logp(Level.INFO, "NetServer", "onReceive", "Disconnected client with address " + address + ", reason: Invalid token");
-				session.write(new SystemMessage("Invalid token"));
+				session.write(new ErrorMessage(ErrorMessage.INVALID_TOKEN, null, null));
 				try {session.close(false).await();}
 				catch(InterruptedException ie) {
 					logger.throwing("NetServer", "onReceive", ie);
@@ -256,27 +259,59 @@ public class NetServer extends UntypedActor {
 				logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + dc.getSessionId());
 			}
 		}
+		else if(message instanceof AddSession) {
+			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- AddSession: {0}", message);
+			AddSession ad = (AddSession) message;
+			logger.logp(Level.FINER, "NetServer", "onReceive", "Added session with id " + ad.getSessionId() + " to session list");
+			sessions.put(ad.getSessionId(), ad.getSession());
+		}
+		else if(message instanceof RemoveSession) {
+			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- RemoveSession: {0}", message);
+			RemoveSession rd = (RemoveSession) message;
+			logger.logp(Level.FINER, "NetServer", "onReceive", "Removed session with id " + rd.getSessionId() + " from session list");
+			sessions.remove(rd.getSessionId());
+			SessionDisconnected msg = new SessionDisconnected(rd.getSessionId());
+			logger.logp(Level.FINER, "NetServer", "onReceive", "SessionDisconnected -> Enqueuer: " + msg);
+			enqueuer.tell(msg, getSelf());
+		}
 		else if(message instanceof SessionMessage) {
 			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- SessionMessage: " + message);
-			SessionMessage cm = (SessionMessage) message;
-			String log = "Message: " + cm.getMessage().getClass().getName() + "\n";
-			for(Field field : cm.getMessage().getClass().getDeclaredFields()) {
-				try {
-					field.setAccessible(true);
-					Class type = field.getType();
-					Object value = field.get(cm.getMessage());
-					log += type.getName() + " " + field.getName() + " = " + value + "\n";
+			SessionMessage sm = (SessionMessage) message;
+			if(sm.isInbound()) {
+				logger.logp(Level.FINER, "NetServer", "onReceive", "SessionMessage -> Enqueuer: " + message);
+				String log = "Message: " + message.getClass().getName() + "\n";
+				for(Field field : message.getClass().getDeclaredFields()) {
+					try {
+						field.setAccessible(true);
+						Class type = field.getType();
+						Object value = field.get(message);
+						log += type.getName() + " " + field.getName() + " = " + value + "\n";
+					}
+					catch(IllegalAccessException iae) {}
 				}
-				catch(IllegalAccessException iae) {}
+				logger.logp(Level.FINEST, "NetServer", "onReceive", log);
+				enqueuer.tell(message, getSelf());
 			}
-			logger.logp(Level.FINEST, "NetServer", "onReceive", log);
-			for(int sessionId : cm.getSessionIds()) {
-				if(sessions.get(sessionId) != null) {
-					logger.logp(Level.FINER, "NetServer", "onReceive", "Message sent to client session with id " + sessionId);
-					sessions.get(sessionId).write(cm.getMessage());
+			else {
+				String log = "Message: " + sm.getMessage().getClass().getName() + "\n";
+				for(Field field : sm.getMessage().getClass().getDeclaredFields()) {
+					try {
+						field.setAccessible(true);
+						Class type = field.getType();
+						Object value = field.get(sm.getMessage());
+						log += type.getName() + " " + field.getName() + " = " + value + "\n";
+					}
+					catch(IllegalAccessException iae) {}
 				}
-				else {
-					logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + sessionId);
+				logger.logp(Level.FINEST, "NetServer", "onReceive", log);
+				for(int sessionId : sm.getSessionIds()) {
+					if(sessions.get(sessionId) != null) {
+						logger.logp(Level.FINER, "NetServer", "onReceive", "Message sent to client session with id " + sessionId);
+						sessions.get(sessionId).write(sm.getMessage());
+					}
+					else {
+						logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + sessionId);
+					}
 				}
 			}
 		}
@@ -310,41 +345,5 @@ public class NetServer extends UntypedActor {
 		else
 			unhandled(message);
 		logger.exiting("NetServer", "onReceive");
-	}
-	
-	public void addSession(int sessionId, IoSession session) {
-		logger.entering("NetServer", "addSession");
-		logger.logp(Level.FINER, "NetServer", "addSession", "Added session with id " + sessionId + " to session list");
-		sessions.put(sessionId, session);
-		logger.exiting("NetServer", "addSession");
-	}
-	
-	public void removeSession(int sessionId) {
-		logger.entering("NetServer", "removeSession");
-		logger.logp(Level.FINER, "NetServer", "removeSession", "Removed session with id " + sessionId + " from session list");
-		sessions.remove(sessionId);
-		SessionDisconnected message = new SessionDisconnected(sessionId);
-		logger.logp(Level.FINER, "NetServer", "removeSession", "SessionDisconnected -> Enqueuer: " + message);
-		enqueuer.tell(message, getSelf());
-		logger.exiting("NetServer", "removeSession");
-	}
-	
-	public void receive(int sessionId, Message message) {
-		logger.entering("NetServer", "receive");
-		SessionMessage msg = new SessionMessage(sessionId, message);
-		logger.logp(Level.FINER, "NetServer", "receive", "Message -> Enqueuer: " + msg);
-		String log = "Message: " + message.getClass().getName() + "\n";
-		for(Field field : message.getClass().getDeclaredFields()) {
-			try {
-				field.setAccessible(true);
-				Class type = field.getType();
-				Object value = field.get(message);
-				log += type.getName() + " " + field.getName() + " = " + value + "\n";
-			}
-			catch(IllegalAccessException iae) {}
-		}
-		logger.logp(Level.FINEST, "NetServer", "receive", log);
-		enqueuer.tell(msg, getSelf());
-		logger.exiting("NetServer", "receive");
 	}
 }

@@ -15,14 +15,13 @@
  */
 package org.mephi.griffin.actorcloud.admin;
 
-import java.io.IOException;
 import org.mephi.griffin.actorcloud.client.Message;
 
 /**
  *
  * @author Griffin
  */
-public class CommandMessage extends Message {
+public class CommandMessage implements Message {
 	
 	public static final int LIST = 1;
 	public static final int ADD = 3;
@@ -65,11 +64,6 @@ public class CommandMessage extends Message {
 	
 	public ClientInfo getClientInfo() {
 		return clientInfo;
-	}
-
-	@Override
-	public byte[] getData() throws IOException {
-		return new byte[1];
 	}
 	
 }

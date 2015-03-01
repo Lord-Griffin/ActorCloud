@@ -19,7 +19,7 @@ package org.mephi.griffin.actorcloud.client;
  *
  * @author Griffin
  */
-public class ClientResult extends Message {
+public class ClientResult implements Message {
 	private boolean found;
 	private String client;
 	
@@ -36,10 +36,5 @@ public class ClientResult extends Message {
 	
 	public String getClient() {
 		return client;
-	}
-
-	@Override
-	public byte[] getData() {
-		return new byte[1];
 	}
 }

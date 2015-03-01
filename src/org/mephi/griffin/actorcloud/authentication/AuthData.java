@@ -22,14 +22,15 @@ import org.mephi.griffin.actorcloud.util.Coder;
  *
  * @author griffin
  */
-public class ClientData {
+public class AuthData {
+	private String login;
+	private byte[] hash;
+	private int sessionId;
+	private IoSession session;
 	
-	private final String login;
-	private final byte[] hash;
-	private final int sessionId;
-	private final IoSession session;
+	public AuthData() {}
 	
-	public ClientData(String login, byte[] hash, int sessionId, IoSession session) {
+	public AuthData(String login, byte[] hash, int sessionId, IoSession session) {
 		this.login = login;
 		this.hash = hash;
 		this.sessionId = sessionId;
@@ -54,6 +55,6 @@ public class ClientData {
 	
 	@Override
 	public String toString() {
-		return "Login \"" + login + "\", hash " + Coder.toHexString(hash) + ", session id " + sessionId;
+		return "Session id " + sessionId + ", session " + session + ", login: " + login + ", hash: " + Coder.toHexString(hash);
 	}
 }

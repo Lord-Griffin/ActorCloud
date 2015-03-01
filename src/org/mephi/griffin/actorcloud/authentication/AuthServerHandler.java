@@ -15,13 +15,14 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
+import akka.actor.ActorRef;
 import java.net.InetSocketAddress;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IoSession;
-import org.mephi.griffin.actorcloud.util.Coder;
+import org.mephi.griffin.actorcloud.client.AuthRequest;
+import org.mephi.griffin.actorcloud.common.RemoveSession;
 
 /**
  *
@@ -29,10 +30,10 @@ import org.mephi.griffin.actorcloud.util.Coder;
  */
 public class AuthServerHandler extends IoHandlerAdapter {
 	private static final Logger logger = Logger.getLogger(AuthServerHandler.class.getName());
-	private final AuthServer server;
+	private final ActorRef server;
 	private int sessionId;
 	
-	public AuthServerHandler(AuthServer server) {
+	public AuthServerHandler(ActorRef server) {
 		logger.entering("AuthServerHandler", "Constructor");
 		this.server = server;
 		sessionId = 0;
@@ -41,43 +42,45 @@ public class AuthServerHandler extends IoHandlerAdapter {
 	
 	@Override
 	public void sessionOpened(IoSession session) {
-		logger.entering("AuthServerHandler", "sessionOpened");
-		logger.logp(Level.FINE, "AuthServerHandler", "sessionOpened", "Connected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + sessionId);
+		logger.entering("AuthServerHandler session id " + sessionId, "sessionOpened");
+		logger.logp(Level.FINE, "AuthServerHandler session id " + sessionId, "sessionOpened", "Connected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + sessionId);
 		session.setAttribute("ID", sessionId++);
-		logger.exiting("AuthServerHandler", "sessionOpened");
+		logger.exiting("AuthServerHandler session id " + session.getAttribute("ID"), "sessionOpened");
 	}
 	
 	@Override
 	public void sessionClosed(IoSession session) {
-		logger.entering("AuthServerHandler", "sessionClosed");
-		logger.logp(Level.FINE, "AuthServerHandler", "sessionClosed", "Disconnected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + session.getAttribute("ID"));
-		server.removeSession((int) session.getAttribute("ID"));
-		logger.exiting("AuthServerHandler", "sessionClosed");
+		logger.entering("AuthServerHandler session id " + session.getAttribute("ID"), "sessionClosed");
+		session.close(true);
+		logger.logp(Level.FINE, "AuthServerHandler session id " + session.getAttribute("ID"), "sessionClosed", "Disconnected client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress() + ", session id " + session.getAttribute("ID"));
+		RemoveSession msg = new RemoveSession((int) session.getAttribute("ID"));
+		logger.logp(Level.FINER, "AuthServerHandler session id " + session.getAttribute("ID"), "sessionClosed", "RemoveSession -> AuthServer: {0}", msg);
+		server.tell(msg, null);
+		logger.exiting("AuthServerHandler session id " + session.getAttribute("ID"), "sessionClosed");
 	}
 	
 	@Override
 	public void messageReceived(IoSession session, Object message) {
-		logger.entering("AuthServerHandler", "messageReceived");
-		if(!(message instanceof IoBuffer)) logger.logp(Level.FINER, "AuthServerHandler", "messageReceived", "Discarded unexpected object " + message.getClass().getName());
+		logger.entering("AuthServerHandler session id " + session.getAttribute("ID"), "messageReceived");
+		if(!(message instanceof AuthRequest)) logger.logp(Level.FINER, "AuthServerHandler", "messageReceived", "Discarded unexpected object " + message.getClass().getName());
 		else {
-			IoBuffer buf = (IoBuffer) message;
-			byte[] bytes = new byte[buf.getInt()];
-			buf.get(bytes);
-			String login = new String(bytes);
-			byte[] hash = new byte[buf.getInt()];
-			buf.get(hash);
-			logger.logp(Level.FINER, "AuthServerHandler", "messageReceived", "Received credentials: " + login + ", " + Coder.toHexString(hash));
-			server.checkAuth(login, hash, (int) session.getAttribute("ID"), session);
+			AuthRequest ar = (AuthRequest) message;
+			logger.logp(Level.FINER, "AuthServerHandler session id " + session.getAttribute("ID"), "messageReceived", "Received authentication request {0}", message);
+			AuthData msg = new AuthData(ar.getLogin(), ar.getHash(), (int) session.getAttribute("ID"), session);
+			logger.logp(Level.FINER, "AuthServerHandler session id " + session.getAttribute("ID"), "messageReceived", "AuthData -> AuthServer: {0}", msg);
+			server.tell(msg, null);
 		}
-		logger.exiting("AuthServerHandler", "messageReceived");
+		logger.exiting("AuthServerHandler session id " + session.getAttribute("ID"), "messageReceived");
 	}
 	
 	@Override
 	public void exceptionCaught(IoSession session, Throwable cause) {
-		logger.entering("AuthServerHandler", "exceptionCaught");
-		logger.throwing("AuthServerHandler", "exceptionCaught", cause);
+		logger.entering("AuthServerHandler session id " + session.getAttribute("ID"), "exceptionCaught");
+		logger.throwing("AuthServerHandler session id " + session.getAttribute("ID"), "exceptionCaught", cause);
 		session.close(true);
-		server.removeSession((int) session.getAttribute("ID"));
-		logger.exiting("AuthServerHandler", "exceptionCaught");
+		RemoveSession msg = new RemoveSession((int) session.getAttribute("ID"));
+		logger.logp(Level.FINER, "AuthServerHandler session id " + session.getAttribute("ID"), "exceptionCaught", "RemoveSession -> AuthServer: {0}", msg);
+		server.tell(msg, null);
+		logger.exiting("AuthServerHandler session id " + session.getAttribute("ID"), "exceptionCaught");
 	}
 }

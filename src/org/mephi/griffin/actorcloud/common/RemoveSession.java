@@ -13,26 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.client;
-
-import org.apache.mina.core.session.IoSession;
+package org.mephi.griffin.actorcloud.common;
 
 /**
  *
  * @author Griffin
  */
-public class Connection {
-	private IoSession session;
+public class RemoveSession {
+	private int sessionId;
 	
-	protected Connection(IoSession session) {
-		this.session = session;
+	public RemoveSession() {}
+	
+	public RemoveSession(int sessionId) {
+		this.sessionId = sessionId;
 	}
 	
-	public SendFuture send(Message message) {
-		return new SendFuture(session.write(message));
+	public int getSessionId() {
+		return sessionId;
 	}
 	
-	public CloseFuture close(boolean immediately) {
-		return new CloseFuture(session.close(immediately));
+	@Override
+	public String toString() {
+		return "Session id " + sessionId;
 	}
 }

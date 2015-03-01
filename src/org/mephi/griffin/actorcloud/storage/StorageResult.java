@@ -17,7 +17,7 @@ package org.mephi.griffin.actorcloud.storage;
 
 import org.mephi.griffin.actorcloud.client.Message;
 
-public class StorageResult extends Message {
+public class StorageResult implements Message {
 	public static final int GET = 1;
 	public static final int PUT = 2;
 	public static final int UPDATE = 3;
@@ -81,11 +81,6 @@ public class StorageResult extends Message {
 	
 	public Entity[] getEntities() {
 		return entities;
-	}
-
-	@Override
-	public byte[] getData() {
-		return new byte[1];
 	}
 	
 	@Override

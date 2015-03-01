@@ -15,12 +15,13 @@
  */
 package org.mephi.griffin.actorcloud.admin;
 
+import org.mephi.griffin.actorcloud.client.ErrorMessage;
 import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import java.util.ArrayList;
 import java.util.List;
-import org.mephi.griffin.actorcloud.enqueuer.AddSession;
-import org.mephi.griffin.actorcloud.enqueuer.RemoveSession;
+import org.mephi.griffin.actorcloud.common.AddSession;
+import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
 import org.mephi.griffin.actorcloud.netserver.SessionMessage;
 import org.mephi.griffin.actorcloud.storage.Entity;
@@ -65,11 +66,11 @@ public class AdminActor extends UntypedActor {
 	public void onReceive(Object message) {
 		if(message instanceof AddSession) {
 			AddSession msg = (AddSession) message;
-			if(!sessions.contains(msg.getId())) sessions.add(msg.getId());
+			if(!sessions.contains(msg.getSessionId())) sessions.add(msg.getSessionId());
 		}
 		else if(message instanceof RemoveSession) {
 			RemoveSession msg = (RemoveSession) message;
-			sessions.remove(new Integer(msg.getId()));
+			sessions.remove(new Integer(msg.getSessionId()));
 		}
 		else if(message instanceof CommandMessage) {
 			CommandMessage msg = (CommandMessage) message;
@@ -104,34 +105,34 @@ public class AdminActor extends UntypedActor {
 		else if(message instanceof StorageResult) {
 			StorageResult msg = (StorageResult) message;
 			if(msg.getOp() == StorageResult.GET) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage("Error getting clients list: " + msg.getMessage())), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error getting clients list: " + msg.getMessage(), null), false), getSelf());
 				else {
 					Entity[] entities = msg.getEntities();
 					list = new ClientInfo[msg.getCount()];
 					for(int i = 0; i < entities.length; i++)
 						list[i] = new ClientInfo((String) entities[i].get("name"), (byte[]) entities[i].get("hash"), (String) entities[i].get("messageHandler"), (String) entities[i].get("childHandler"));
-					netServer.tell(new SessionMessage(sessions, new ListMessage(list)), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ListMessage(list), false), getSelf());
 				}
 			}
 			if(msg.getOp() == StorageResult.PUT) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage("Error adding client: " + msg.getMessage())), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error adding client: " + msg.getMessage(), null), false), getSelf());
 				else {
 					list = null;
-					netServer.tell(new SessionMessage(sessions, new ResultMessage()), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ResultMessage(), false), getSelf());
 				}
 			}
 			if(msg.getOp() == StorageResult.UPDATE) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage("Error updating client: " + msg.getMessage())), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error updating client: " + msg.getMessage(), null), false), getSelf());
 				else {
 					list = null;
-					netServer.tell(new SessionMessage(sessions, new ResultMessage()), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ResultMessage(), false), getSelf());
 				}
 			}
 			if(msg.getOp() == StorageResult.REMOVE) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage("Error removing client: " + msg.getMessage())), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error removing client: " + msg.getMessage(), null), false), getSelf());
 				else {
 					list = null;
-					netServer.tell(new SessionMessage(sessions, new ResultMessage()), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ResultMessage(), false), getSelf());
 				}
 			}
 		}

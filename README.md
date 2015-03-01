@@ -10,6 +10,6 @@ TODO:
 - [ ] Add client logging API
 - [ ] Test Java 8 support
 - [x] Rewrote client network API from scratch in asynchronous manner with Futures etc.
-- [x] Solve performance issues
+- [x] Solved performance issues
 - [x] Added detailed logging through java.util.logging API
 - [x] Moved from Netty to Apache Mina

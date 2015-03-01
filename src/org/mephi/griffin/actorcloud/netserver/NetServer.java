@@ -107,7 +107,7 @@ public class NetServer extends UntypedActor {
 			KeyStore keyStore = KeyStore.getInstance("jks");
 			keyStore.load(new FileInputStream("D:\\server.jks"), "abcdef".toCharArray());
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
-			kmf.init(keyStore, "antharas".toCharArray());
+			kmf.init(keyStore, "abcdef".toCharArray());
 			KeyStore trustStore = KeyStore.getInstance("jks");
 			trustStore.load(new FileInputStream("D:\\ca.jks"), "abcdef".toCharArray());
 			TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");

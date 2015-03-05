@@ -15,7 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
-import org.mephi.griffin.actorcloud.manager.AuthConfirmation;
+import org.mephi.griffin.actorcloud.actormanager.AuthConfirmation;
 import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import java.io.FileInputStream;
@@ -57,7 +57,7 @@ import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
-import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
+import org.mephi.griffin.actorcloud.actormanager.ActorRefMessage;
 import org.mephi.griffin.actorcloud.storage.Entity;
 import org.mephi.griffin.actorcloud.storage.SimpleQuery;
 import org.mephi.griffin.actorcloud.storage.Storage;
@@ -223,7 +223,7 @@ public class AuthServer extends UntypedActor {
 			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- StorageResult: " + message);
 			StorageResult sr = (StorageResult) message;
 			if(sr.getOp() == StorageResult.GET) {
-				AuthData clientData = clients.get(sr.getId());
+				AuthData clientData = clients.remove(sr.getId());
 				if(clientData != null) {
 					logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client data from queue by storage request id " + sr.getId() + ": " + clientData);
 					if(sr.error()) {
@@ -233,8 +233,6 @@ public class AuthServer extends UntypedActor {
 					else if(sr.getCount() == 0) {
 						logger.logp(Level.INFO, "AuthServer", "onReceive", "Wrong credentials: login \"" + clientData.getLogin() + "\"");
 						decline(clientData.getSession(), new ErrorMessage(ErrorMessage.WRONG_CRED, null, null));
-						logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client data from queue by id " + sr.getId());
-						clients.remove(sr.getId());
 					}
 					else if(sr.getCount() > 1) {
 						logger.logp(Level.WARNING, "AuthServer", "onReceive", "Authentication declined because of storage error: too much clients with same login: " + sr.getCount());
@@ -284,11 +282,10 @@ public class AuthServer extends UntypedActor {
 			AuthConfirmation ac = (AuthConfirmation) message;
 			int sessionId = ac.getSessionId();
 			String token = ac.getToken();
-			if(sessions.containsKey(sessionId)) {
+			IoSession session = sessions.remove(sessionId);
+			if(session != null) {
 				logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client session with id " + sessionId + " from waiting session list");
-				grant(sessions.get(sessionId), token, ac.getAddresses());
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client session with id " + sessionId + " from waiting session list");
-				sessions.remove(sessionId);
+				grant(session, token, ac.getAddresses());
 			}
 			else
 				logger.logp(Level.FINER, "AuthServer", "onReceive", "Client session with id " + sessionId + " is not in waiting list");
@@ -298,11 +295,10 @@ public class AuthServer extends UntypedActor {
 			AuthDecline ad = (AuthDecline) message;
 			int sessionId = ad.getSessionId();
 			String reason = ad.getReason();
-			if(sessions.containsKey(sessionId)) {
+			IoSession session = sessions.remove(sessionId);
+			if(session != null) {
 				logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client session with id " + sessionId + " from waiting session list");
-				decline(sessions.get(sessionId), new ErrorMessage(ErrorMessage.CUSTOM, reason, null));
-				logger.logp(Level.FINER, "AuthServer", "onReceive", "Removed client session with id " + sessionId + " from waiting session list");
-				sessions.remove(sessionId);
+				decline(session, new ErrorMessage(ErrorMessage.CUSTOM, reason, null));
 			}
 			else
 				logger.logp(Level.FINER, "AuthServer", "onReceive", "Client session with id " + sessionId + " is not in waiting list");

@@ -16,9 +16,9 @@
 package org.mephi.griffin.actorcloud.enqueuer;
 
 import org.mephi.griffin.actorcloud.common.AddSession;
-import org.mephi.griffin.actorcloud.manager.ActorStarted;
-import org.mephi.griffin.actorcloud.manager.AllowConnection;
-import org.mephi.griffin.actorcloud.manager.ActorStopped;
+import org.mephi.griffin.actorcloud.actormanager.ActorStarted;
+import org.mephi.griffin.actorcloud.actormanager.AllowConnection;
+import org.mephi.griffin.actorcloud.actormanager.ActorStopped;
 import akka.actor.ActorRef;
 import akka.actor.Cancellable;
 import akka.actor.UntypedActor;
@@ -26,16 +26,18 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.client.TokenMessage;
 import org.mephi.griffin.actorcloud.client.TokenResponse;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
-import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
+import org.mephi.griffin.actorcloud.actormanager.ActorRefMessage;
 import org.mephi.griffin.actorcloud.netserver.SessionDisconnected;
 import org.mephi.griffin.actorcloud.netserver.SessionMessage;
 import scala.concurrent.duration.Duration;
@@ -146,57 +148,57 @@ public class Enqueuer extends UntypedActor {
 			if(sm.getMessage() instanceof TokenMessage) {
 				String token = ((TokenMessage) sm.getMessage()).getToken();
 				logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client token " + token);
-				TokenData data = tokens.get(token);
+				TokenData data = tokens.remove(token);
 				if(data != null) {
 					logger.logp(Level.FINE, "Enqueuer", "onReceive", "Got token data for token " + token + ": " + data);
 					logger.logp(Level.INFO, "Enqueuer", "onReceive", "Client \"" + data.getClient() + "\" connected");
-					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Removed token " + token);
-					tokens.remove(token);
 					ActorRef clientActor = clientActors.get(data.getClient());
 					if(clientActor != null) {
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for client " + data.getClient());
-						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Added client session with id " + sm.getSessionIds().get(0) + ", client " + data.getClient() + ", actor " + clientActors.get(data.getClient()));
-						sessions.put(sm.getSessionIds().get(0), new SessionData(data.getClient(), clientActor));
-						AddSession msg = new AddSession(sm.getSessionIds().get(0), null);
+						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Added client session with id " + sm.getSessionId() + ", client " + data.getClient() + ", actor " + clientActors.get(data.getClient()));
+						sessions.put(sm.getSessionId(), new SessionData(data.getClient(), clientActor));
+						AddSession msg = new AddSession(sm.getSessionId(), null);
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "AddSession -> client actor: " + msg);
-						clientActors.get(data.getClient()).tell(msg, getSelf());
+						clientActor.tell(msg, getSelf());
 						ClientConnected cc = new ClientConnected(data.getClient());
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "ClientConnected -> Manager: " + cc);
 						manager.tell(cc, getSelf());
-						SessionMessage response = new SessionMessage(sm.getSessionIds().get(0), new TokenResponse(), false);
+						Set<Integer> sessionIds = new HashSet<>();
+						sessionIds.add(sm.getSessionId());
+						SessionMessage response = new SessionMessage(sessionIds, new TokenResponse());
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "TokenResponse -> NetServer: {0}", response);
 						netServer.tell(response, getSelf());
 					}
 					else {
 						logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Client actor for client " + data.getClient() + " not found");
-						DisconnectSession msg = new DisconnectSession(sm.getSessionIds().get(0), DisconnectSession.NOTOKEN);
+						DisconnectSession msg = new DisconnectSession(sm.getSessionId(), DisconnectSession.NOTOKEN);
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "DisconnectSession -> NetServer: " + msg);
 						netServer.tell(msg, getSelf());
 					}
 				}
 				else {
 					logger.logp(Level.INFO, "Enqueuer", "onReceive", "Token " + token + " is invalid");
-					DisconnectSession msg = new DisconnectSession(sm.getSessionIds().get(0), DisconnectSession.NOTOKEN);
+					DisconnectSession msg = new DisconnectSession(sm.getSessionId(), DisconnectSession.NOTOKEN);
 					logger.logp(Level.FINER, "Enqueuer", "onReceive", "DisconnectSession -> NetServer: " + msg);
 					netServer.tell(msg, getSelf());
 				}
 			}
 			else {
-				SessionData data = sessions.get(sm.getSessionIds().get(0));
+				SessionData data = sessions.get(sm.getSessionId());
 				if(data != null) {
-					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got session data for session with id " + sm.getSessionIds().get(0) + ": " + data);
+					logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got session data for session with id " + sm.getSessionId() + ": " + data);
 					ActorRef clientActor = data.getActor();
 					if(clientActor != null) {
-						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for session with id " + sm.getSessionIds().get(0) + ": " + clientActor);
+						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Got client actor for session with id " + sm.getSessionId() + ": " + clientActor);
 						logger.logp(Level.FINER, "Enqueuer", "onReceive", "Message " + sm.getMessage().getClass().getName() + " -> client actor");
 						clientActor.tell(sm.getMessage(), getSelf());
 					}
 					else {
-						logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Client actor for session with id " + sm.getSessionIds().get(0) + " not found");
+						logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Client actor for session with id " + sm.getSessionId() + " not found");
 					}
 				}
 				else {
-					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Session data for session with id " + sm.getSessionIds().get(0) + " not found");
+					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Session data for session with id " + sm.getSessionId() + " not found");
 				}
 			}
 		}

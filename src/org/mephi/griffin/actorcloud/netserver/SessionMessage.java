@@ -15,8 +15,9 @@
  */
 package org.mephi.griffin.actorcloud.netserver;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 import org.mephi.griffin.actorcloud.client.Message;
 
 /**
@@ -25,30 +26,33 @@ import org.mephi.griffin.actorcloud.client.Message;
  */
 public class SessionMessage {
 	
-	private boolean inbound;
-	private List<Integer> sessionIds;
+	private int sessionId;
+	private Set<Integer> sessionIds;
 	private Message message;
 	
 	public SessionMessage() {}
 	
-	public SessionMessage(int sessionId, Message message, boolean inbound) {
-		sessionIds = new ArrayList<>();
-		sessionIds.add(sessionId);
+	public SessionMessage(int sessionId, Message message) {
+		this.sessionId = sessionId;
+		this.sessionIds = null;
 		this.message = message;
-		this.inbound = inbound;
 	}
 	
-	public SessionMessage(List<Integer> sessionIds, Message message, boolean inbound) {
+	public SessionMessage(Set<Integer> sessionIds, Message message) {
 		this.sessionIds = sessionIds;
 		this.message = message;
-		this.inbound = inbound;
 	}
 	
 	public boolean isInbound() {
-		return inbound;
+		return sessionIds == null;
 	}
 	
-	public List<Integer> getSessionIds() {
+	public int getSessionId() {
+		if(!isInbound()) return -1;
+		return sessionId;
+	}
+	
+	public Set<Integer> getSessionIds() {
 		return sessionIds;
 	}
 	
@@ -59,11 +63,17 @@ public class SessionMessage {
 	@Override
 	public String toString() {
 		String res = "Message ";
-		if(inbound) res += "from ";
+		if(isInbound()) res += "from ";
 		else res += "to ";
 		res += "sessions with ids ";
-		for(int i = 0; i < sessionIds.size() - 1; i++) res += sessionIds.get(i) + ", ";
-		res += sessionIds.get(sessionIds.size() - 1) + ": " + message.getClass().getName();
+		Iterator<Integer> iter = sessionIds.iterator();
+		if(!sessionIds.isEmpty()) {
+			res += iter.next();
+			do {
+				res += ", " + iter.next();
+			} while(iter.hasNext());
+		}
+		res += ": " + message.getClass().getName();
 		return res;
 	}
 }

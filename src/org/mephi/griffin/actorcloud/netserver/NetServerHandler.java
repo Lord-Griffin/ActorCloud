@@ -69,7 +69,7 @@ public class NetServerHandler extends IoHandlerAdapter {
 		if(!(message instanceof Message)) logger.logp(Level.FINER, "NetServerHandler session id " + session.getAttribute("ID"), "messageReceived", "Discarded unexpected object " + message.getClass().getName());
 		else {
 			logger.logp(Level.FINE, "NetServerHandler session id " + session.getAttribute("ID"), "messageReceived", "Message " + message.getClass().getName() + " from client " + ((InetSocketAddress) session.getRemoteAddress()).getAddress().getHostAddress());
-			SessionMessage msg = new SessionMessage((int) session.getAttribute("ID"), (Message) message, true);
+			SessionMessage msg = new SessionMessage((int) session.getAttribute("ID"), (Message) message);
 			logger.logp(Level.FINE, "NetServerHandler session id " + session.getAttribute("ID"), "messageReceived", "SessionMessage -> NetServer: {0}", msg);
 			server.tell(msg, server);
 		}

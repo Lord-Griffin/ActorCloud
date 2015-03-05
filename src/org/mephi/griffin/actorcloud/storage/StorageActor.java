@@ -15,7 +15,6 @@
  */
 package org.mephi.griffin.actorcloud.storage;
 
-import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;

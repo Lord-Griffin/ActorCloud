@@ -13,26 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
+package org.mephi.griffin.actorcloud.actormanager;
 
-import akka.actor.ActorRef;
-
-public class ClientFindResult {
+/**
+ *
+ * @author Griffin
+ */
+public class ActorStopped {
+	
 	private String client;
-	private ActorRef ref;
 	
-	public ClientFindResult() {}
+	public ActorStopped() {}
 	
-	public ClientFindResult(String client, ActorRef ref) {
+	public ActorStopped(String client) {
 		this.client = client;
-		this.ref = ref;
 	}
 	
 	public String getClient() {
 		return client;
 	}
 	
-	public ActorRef getRef() {
-		return ref;
+	@Override
+	public String toString() {
+		return "Client " + client;
 	}
 }

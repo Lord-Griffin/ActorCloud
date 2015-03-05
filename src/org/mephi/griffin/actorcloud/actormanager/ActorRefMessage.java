@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
+package org.mephi.griffin.actorcloud.actormanager;
 
 import akka.actor.ActorRef;
 
@@ -21,20 +21,23 @@ import akka.actor.ActorRef;
  *
  * @author Griffin
  */
-public class ActorStarted {
+public class ActorRefMessage {
+	public static final int ENQUEUER = 1;
+	public static final int NET = 2;
+	public static final int STORAGE = 3;
 	
-	private String client;
-	private ActorRef actor;
+	int type;
+	ActorRef actor;
 	
-	public ActorStarted() {}
+	public ActorRefMessage() {}
 	
-	public ActorStarted(String client, ActorRef actor) {
-		this.client = client;
+	public ActorRefMessage(int type, ActorRef actor) {
+		this.type = type;
 		this.actor = actor;
 	}
 	
-	public String getClient() {
-		return client;
+	public int getType() {
+		return type;
 	}
 	
 	public ActorRef getRef() {
@@ -43,6 +46,19 @@ public class ActorStarted {
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", actor " + actor;
+		String res = "";
+		switch(type) {
+			case ENQUEUER:
+				res += "Enqueuer: ";
+				break;
+			case NET:
+				res += "Network server: ";
+				break;
+			case STORAGE:
+				res += "Storage: ";
+				break;
+		}
+		res += actor;
+		return res;
 	}
 }

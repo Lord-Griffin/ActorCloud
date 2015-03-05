@@ -62,7 +62,7 @@ import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
-import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
+import org.mephi.griffin.actorcloud.actormanager.ActorRefMessage;
 import scala.concurrent.duration.Duration;
 
 /**
@@ -250,10 +250,7 @@ public class NetServer extends UntypedActor {
 				}
 				logger.logp(Level.INFO, "NetServer", "onReceive", "Disconnected client with address " + address + ", reason: Invalid token");
 				session.write(new ErrorMessage(ErrorMessage.INVALID_TOKEN, null, null));
-				try {session.close(false).await();}
-				catch(InterruptedException ie) {
-					logger.throwing("NetServer", "onReceive", ie);
-				}
+				session.close(false);
 			}
 			else {
 				logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + dc.getSessionId());

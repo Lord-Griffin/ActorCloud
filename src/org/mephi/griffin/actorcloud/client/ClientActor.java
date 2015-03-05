@@ -25,15 +25,16 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
 import org.mephi.griffin.actorcloud.common.AddSession;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
-import org.mephi.griffin.actorcloud.manager.ActorRefMessage;
-import org.mephi.griffin.actorcloud.manager.ClientFindResult;
+import org.mephi.griffin.actorcloud.actormanager.ClientFindResult;
 import org.mephi.griffin.actorcloud.netserver.SessionMessage;
 import org.mephi.griffin.actorcloud.storage.StorageResult;
 
@@ -47,7 +48,7 @@ public class ClientActor extends UntypedActor {
 	private String name;
 	private ActorRef netServer;
 	private ActorRef storage;
-	private List<Integer> sessions;
+	private Set<Integer> sessions;
 	private String messageHandlerName;
 	private String childHandlerName;
 	private MessageHandler handler;
@@ -59,7 +60,7 @@ public class ClientActor extends UntypedActor {
 		this.cl = cl;
 		this.netServer = netServer;
 		this.storage = storage;
-		this.sessions = new ArrayList<>();
+		this.sessions = new HashSet<>();
 		this.messageHandlerName = messageHandler;
 		this.childHandlerName = childHandler;
 		logger.logp(Level.FINER, this.name, "Constructor", "NetServer: " + netServer + ", Storage: " + storage + ", messageHandler: " + messageHandlerName + ", childHanlder: " + childHandlerName);
@@ -165,14 +166,14 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()), false);
+				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
 			}
 		}
 		else if(message instanceof InitFail) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- InitFail: " + message);
-			SessionMessage msg = new SessionMessage(sessions, new SystemMessage(((InitFail) message).getError()), false);
+			SessionMessage msg = new SessionMessage(sessions, new SystemMessage(((InitFail) message).getError()));
 			logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 			netServer.tell(msg, getSelf());
 		}
@@ -188,7 +189,7 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()), false);
+				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
 			}
@@ -221,14 +222,14 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()), false);
+				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
 			}
 		}
 		else if(message instanceof String) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- String: " + message);
-			SessionMessage msg = new SessionMessage(sessions, new SystemMessage((String) message), false);
+			SessionMessage msg = new SessionMessage(sessions, new SystemMessage((String) message));
 			logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 			netServer.tell(msg, getSelf());
 		}
@@ -238,7 +239,7 @@ public class ClientActor extends UntypedActor {
 	
 	public void sendClient(Message message) {
 		logger.entering(name, "sendClient");
-		SessionMessage msg = new SessionMessage(sessions, message, false);
+		SessionMessage msg = new SessionMessage(sessions, message);
 		logger.logp(Level.FINE, name, "sendClient", "SessionMessage -> NetServer: " + msg);
 		String log = "Message: " + message.getClass().getName() + "\n";
 		for(Field field : message.getClass().getDeclaredFields()) {

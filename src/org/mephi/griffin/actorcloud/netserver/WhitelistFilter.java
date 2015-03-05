@@ -20,8 +20,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.logging.Level;
-
 import org.apache.mina.core.filterchain.IoFilter;
 import org.apache.mina.core.filterchain.IoFilterAdapter;
 import org.apache.mina.core.session.IdleStatus;
@@ -36,6 +34,10 @@ public class WhitelistFilter extends IoFilterAdapter {
     private final List<Subnet> whitelist = new CopyOnWriteArrayList<>();
 
     private final static Logger LOGGER = LoggerFactory.getLogger(WhitelistFilter.class);
+	
+	public WhitelistFilter() {
+		super();
+	}
 
     public void setWhitelist(InetAddress[] addresses) {
         if (addresses == null) {

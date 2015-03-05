@@ -18,8 +18,8 @@ package org.mephi.griffin.actorcloud.admin;
 import org.mephi.griffin.actorcloud.client.ErrorMessage;
 import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import org.mephi.griffin.actorcloud.common.AddSession;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
@@ -37,13 +37,13 @@ public class AdminActor extends UntypedActor {
 	
 	private ActorRef netServer;
 	private Storage storage;
-	private List<Integer> sessions;
+	private Set<Integer> sessions;
 	private ClientInfo[] list;
 	
 	public AdminActor(ActorRef netServer, ActorRef storage) {
 		this.netServer = netServer;
 		this.storage = new Storage(storage, getSelf());
-		sessions = new ArrayList<>();
+		sessions = new HashSet<>();
 	}
 	
 	@Override
@@ -105,34 +105,34 @@ public class AdminActor extends UntypedActor {
 		else if(message instanceof StorageResult) {
 			StorageResult msg = (StorageResult) message;
 			if(msg.getOp() == StorageResult.GET) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error getting clients list: " + msg.getMessage(), null), false), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error getting clients list: " + msg.getMessage(), null)), getSelf());
 				else {
 					Entity[] entities = msg.getEntities();
 					list = new ClientInfo[msg.getCount()];
 					for(int i = 0; i < entities.length; i++)
 						list[i] = new ClientInfo((String) entities[i].get("name"), (byte[]) entities[i].get("hash"), (String) entities[i].get("messageHandler"), (String) entities[i].get("childHandler"));
-					netServer.tell(new SessionMessage(sessions, new ListMessage(list), false), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ListMessage(list)), getSelf());
 				}
 			}
 			if(msg.getOp() == StorageResult.PUT) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error adding client: " + msg.getMessage(), null), false), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error adding client: " + msg.getMessage(), null)), getSelf());
 				else {
 					list = null;
-					netServer.tell(new SessionMessage(sessions, new ResultMessage(), false), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ResultMessage()), getSelf());
 				}
 			}
 			if(msg.getOp() == StorageResult.UPDATE) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error updating client: " + msg.getMessage(), null), false), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error updating client: " + msg.getMessage(), null)), getSelf());
 				else {
 					list = null;
-					netServer.tell(new SessionMessage(sessions, new ResultMessage(), false), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ResultMessage()), getSelf());
 				}
 			}
 			if(msg.getOp() == StorageResult.REMOVE) {
-				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error removing client: " + msg.getMessage(), null), false), getSelf());
+				if(msg.error()) netServer.tell(new SessionMessage(sessions, new ErrorMessage(ErrorMessage.CUSTOM, "Error removing client: " + msg.getMessage(), null)), getSelf());
 				else {
 					list = null;
-					netServer.tell(new SessionMessage(sessions, new ResultMessage(), false), getSelf());
+					netServer.tell(new SessionMessage(sessions, new ResultMessage()), getSelf());
 				}
 			}
 		}

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.manager;
+package org.mephi.griffin.actorcloud.actormanager;
 
 import org.mephi.griffin.actorcloud.common.InitSuccess;
 import org.mephi.griffin.actorcloud.enqueuer.AllowConfirmation;
@@ -210,7 +210,7 @@ public class Manager extends UntypedActor {
 					break;
 				case InitFail.CLIENT:
 					String client = ifd.getName();
-					ClientData cd = clients.get(ifd.getName());
+					ClientData cd = clients.remove(ifd.getName());
 					if(cd != null) {
 						logger.logp(Level.FINER, "Manager", "onReceive", "Got client data for client \"" + client + "\": " + cd);
 						List<AuthData> ad = cd.getAuthData();
@@ -231,8 +231,6 @@ public class Manager extends UntypedActor {
 						else {
 							logger.logp(Level.SEVERE, "Manager", "onReceive", "Waiting authentication session list for client \"" + client + "\" not found");
 						}
-						logger.logp(Level.FINER, "Manager", "onReceive", "Removed client \"" + client + "\" from client list");
-						clients.remove(ifd.getName());
 						getContext().stop(getSender());
 					}
 					else {
@@ -408,8 +406,9 @@ public class Manager extends UntypedActor {
 		else if(message instanceof String) {
 			logger.logp(Level.FINER, "Manager", "onReceive", "Manager <- String (UserSearch): " + message);
 			String client = (String) message;
-			if(clients.containsKey(client)) {
-				getSender().tell(new ClientFindResult(client, clients.get(client).getActor()), getSelf());
+			ClientData cd = clients.get(client);
+			if(cd != null) {
+				getSender().tell(new ClientFindResult(client, cd.getActor()), getSelf());
 			}
 			else {
 				getSender().tell(new ClientFindResult(client, null), getSelf());

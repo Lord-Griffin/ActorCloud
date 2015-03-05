@@ -9,6 +9,7 @@ TODO:
 - [ ] Add config files support
 - [ ] Add client logging API
 - [ ] Test Java 8 support
+- [x] Optimized used data structures and operations
 - [x] Rewrote client network API from scratch in asynchronous manner with Futures etc.
 - [x] Solved performance issues
 - [x] Added detailed logging through java.util.logging API

@@ -19,24 +19,35 @@ import akka.actor.ActorRef;
 import akka.actor.ActorSelection;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
+import akka.serialization.Serialization;
+import akka.serialization.SerializationExtension;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.mephi.griffin.actorcloud.client.messages.GetSnapshot;
+import org.mephi.griffin.actorcloud.client.messages.Message;
+import org.mephi.griffin.actorcloud.client.messages.Ready;
+import org.mephi.griffin.actorcloud.client.messages.RecoveryFail;
+import org.mephi.griffin.actorcloud.client.messages.RecoverySuccess;
+import org.mephi.griffin.actorcloud.client.messages.Snapshot;
+import org.mephi.griffin.actorcloud.client.messages.SystemMessage;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
-import org.mephi.griffin.actorcloud.common.AddSession;
-import org.mephi.griffin.actorcloud.common.RemoveSession;
-import org.mephi.griffin.actorcloud.actormanager.ClientFindResult;
+import org.mephi.griffin.actorcloud.enqueuer.messages.ClientConnected;
+import org.mephi.griffin.actorcloud.enqueuer.messages.ClientDisconnected;
 import org.mephi.griffin.actorcloud.netserver.SessionMessage;
 import org.mephi.griffin.actorcloud.storage.StorageResult;
+import org.mephi.griffin.actorcloud.util.MyObjectInputStream;
 
 /**
  *
@@ -44,76 +55,132 @@ import org.mephi.griffin.actorcloud.storage.StorageResult;
  */
 public class ClientActor extends UntypedActor {
 	private static final Logger logger = Logger.getLogger(ClientActor.class.getName());
-	private final ClassLoader cl;
+	private ClassLoader cl;
 	private String name;
+	private ActorRef watcher;
 	private ActorRef netServer;
+	private int sessionId;
 	private ActorRef storage;
-	private Set<Integer> sessions;
 	private String messageHandlerName;
 	private String childHandlerName;
 	private MessageHandler handler;
 	private ActorRef[] childs;
+	private ActorRef deadActor;
+	private byte[] snapshot;
+	private int snapshotId;
+	private ActorRef backupManager;
 	
-	public ClientActor(String name, ClassLoader cl, ActorRef netServer, ActorRef storage, String messageHandler, String childHandler) {
+	public ClientActor(ClassLoader cl, ActorRef storage, ActorRef backupManager, String messageHandler, String childHandler, String name) {
 		logger.entering("ClientActor(" + name + ")", "Constructor");
-		this.name = "ClientActor(" + name + ")";
 		this.cl = cl;
-		this.netServer = netServer;
+		this.name = name;
+		this.watcher = getContext().parent();
+		this.netServer = null;
 		this.storage = storage;
-		this.sessions = new HashSet<>();
 		this.messageHandlerName = messageHandler;
 		this.childHandlerName = childHandler;
+		this.snapshot = null;
+		this.snapshotId = 0;
+		this.backupManager = backupManager;
 		logger.logp(Level.FINER, this.name, "Constructor", "NetServer: " + netServer + ", Storage: " + storage + ", messageHandler: " + messageHandlerName + ", childHanlder: " + childHandlerName);
 		logger.exiting(this.name, "Constructor");
+	}
+	
+	@SuppressWarnings("LeakingThisInConstructor")
+	public ClientActor(ClassLoader cl, ActorRef storage, ActorRef backupManager, String messageHandler, String childHandler, String name, ActorRef deadActor, byte[] snapshot) {
+		this(cl, storage, backupManager, messageHandler, childHandler, name);
+		this.deadActor = deadActor;
+		this.snapshot = snapshot;
 	}
 	
 	@Override
 	public void preStart() {
 		logger.entering(name, "preStart");
 		logger.logp(Level.FINE, name, "preStart", name + " starts");
-		String errors = "";
-		try {
-			logger.logp(Level.FINER, name, "preStart", "Loading message handler class: " + messageHandlerName);
-			Class handlerClass = cl.loadClass(messageHandlerName);
-			if(!MessageHandler.class.isAssignableFrom(handlerClass)) {
-				errors += "Handler class doesn't inherit MessageHandler class\n";
+		if(snapshot != null) {
+			String errors = "";
+			Serialization serialization = SerializationExtension.get(getContext().system());
+			Object obj = serialization.findSerializerFor(List.class).fromBinary(snapshot);
+			if(obj instanceof List) {
+				List list = (List) obj;
+				netServer = (ActorRef) list.get(0);
+				sessionId = (int) list.get(1);
+				childs = (ActorRef[]) list.get(2);
+				byte[] handlerSnapshot = (byte[]) list.get(3);
+				try {
+					ByteArrayInputStream bais = new ByteArrayInputStream(handlerSnapshot);
+					MyObjectInputStream ois = new MyObjectInputStream(bais, cl);
+					Object handlerObj = ois.readObject();
+					if(handlerObj instanceof MessageHandler) {
+						handler = (MessageHandler) handlerObj;
+						handler.setActors(this, storage, getContext().parent());
+						logger.logp(Level.INFO, name, "preStart", "Client actor for client \"" + name + "\" started");
+						RecoverySuccess msg = new RecoverySuccess(deadActor);
+						watcher.tell(msg, getSelf());
+						logger.logp(Level.FINER, name, "preStart", "InitSuccess -> Manager: " + msg);
+					}
+					else {
+						errors += "Failed to recover message handler: found class " + handlerObj.getClass().getName() + " that is not extending MessageHandler class";
+					}
+				}
+				catch(ClassNotFoundException | IOException ex) {
+					errors += ex.getMessage();
+				}
 			}
-			logger.logp(Level.FINER, name, "preStart", "Acquiring constructor");
-			Constructor con = handlerClass.getDeclaredConstructor();
-			logger.logp(Level.FINER, name, "preStart", "Initializing instance");
-			handler = (MessageHandler) con.newInstance();
-			logger.logp(Level.FINER, name, "preStart", "Initializing config");
-			handler.setActors(this, storage, getContext().parent());
-		}
-		catch(ClassNotFoundException cnfe) {
-			logger.throwing(name, "preStart", cnfe);
-			errors += "Handler class not found: " + cnfe.getMessage() + "\n";
-		}
-		catch(NoSuchMethodException nsme) {
-			logger.throwing(name, "preStart", nsme);
-			errors += "Failed to get handler constructor: " + nsme.getMessage() + "\n";
-		}
-		catch(InvocationTargetException | InstantiationException | ClassCastException | IllegalAccessException e) {
-			logger.throwing(name, "preStart", e);
-			errors += "Failed to get handler instance: " + e.getMessage() + "\n";
-		}
-		catch(Exception e) {
-			logger.throwing(name, "preStart", e);
-			errors += "Main actor initialization error: " + e.getMessage() + "\n";
-		}
-		if(!errors.equals("")) {
-			logger.logp(Level.WARNING, name, "preStart", "There was errors loading message handler:\n" + errors);
-			InitFail msg = new InitFail(InitFail.CLIENT, getSelf().path().name(), "Error initializing message handler:\n" + errors);
-			logger.logp(Level.FINER, name, "preStart", "InitFail -> Manager: " + msg);
-			getContext().parent().tell(msg, getSelf());
-			getContext().stop(getSelf());
+			else {
+				errors += "Unknown snapshot content";
+			}
+			if(!errors.equals("")) {
+				logger.logp(Level.WARNING, name, "preStart", "There was errors recovering client actor :\n" + errors);
+				if(deadActor != null) {
+					RecoveryFail msg = new RecoveryFail(deadActor, "Error recovering client actor:\n" + errors);
+					logger.logp(Level.FINER, name, "preStart", "InitFail -> Manager: " + msg);
+					watcher.tell(msg, getSelf());
+				}
+			}
 		}
 		else {
-			logger.logp(Level.INFO, name, "preStart", "Client actor for client \"" + getSelf().path().name() + "\" started");
-			InitSuccess msg = new InitSuccess(InitSuccess.CLIENT, getSelf().path().name());
-			logger.logp(Level.FINER, name, "preStart", "InitSuccess -> Manager: " + msg);
-			getContext().parent().tell(msg, getSelf());
-			handler.init();
+			String errors = "";
+			try {
+				logger.logp(Level.FINER, name, "preStart", "Loading message handler class: " + messageHandlerName);
+				Class handlerClass = cl.loadClass(messageHandlerName);
+				if(!MessageHandler.class.isAssignableFrom(handlerClass)) {
+					errors += "Handler class doesn't inherit MessageHandler class\n";
+				}
+				logger.logp(Level.FINER, name, "preStart", "Acquiring constructor");
+				Constructor con = handlerClass.getDeclaredConstructor();
+				logger.logp(Level.FINER, name, "preStart", "Initializing instance");
+				handler = (MessageHandler) con.newInstance();
+				logger.logp(Level.FINER, name, "preStart", "Initializing config");
+				handler.setActors(this, storage, getContext().parent());
+				logger.logp(Level.INFO, name, "preStart", "Client actor for client \"" + name + "\" started");
+				InitSuccess msg = new InitSuccess(InitSuccess.CLIENT, null, null, 0);
+				logger.logp(Level.FINER, name, "preStart", "InitSuccess -> Manager: " + msg);
+				watcher.tell(msg, getSelf());
+				handler.init();
+			}
+			catch(ClassNotFoundException cnfe) {
+				logger.throwing(name, "preStart", cnfe);
+				errors += "Handler class not found: " + cnfe.getMessage() + "\n";
+			}
+			catch(NoSuchMethodException nsme) {
+				logger.throwing(name, "preStart", nsme);
+				errors += "Failed to get handler constructor: " + nsme.getMessage() + "\n";
+			}
+			catch(InvocationTargetException | InstantiationException | ClassCastException | IllegalAccessException e) {
+				logger.throwing(name, "preStart", e);
+				errors += "Failed to get handler instance: " + e.getMessage() + "\n";
+			}
+			catch(Exception e) {
+				logger.throwing(name, "preStart", e);
+				errors += "Main actor initialization error: " + e.getMessage() + "\n";
+			}
+			if(!errors.equals("")) {
+				logger.logp(Level.WARNING, name, "preStart", "There was errors loading message handler:\n" + errors);
+				InitFail msg = new InitFail(InitFail.CLIENT, null, null, 0, "Error initializing message handler:\n" + errors);
+				logger.logp(Level.FINER, name, "preStart", "InitFail -> Manager: " + msg);
+				watcher.tell(msg, getSelf());
+			}
 		}
 		logger.exiting(name, "preStart");
 	}
@@ -122,7 +189,7 @@ public class ClientActor extends UntypedActor {
 	public void postStop() {
 		logger.entering(name, "postStop");
 		if(handler != null) handler.destroy();
-		logger.logp(Level.INFO, name, "postStop", "Client actor for client \"" + getSelf().path().name() + "\" stopped");
+		logger.logp(Level.INFO, name, "postStop", "Client actor for client \"" + name + "\" stopped");
 		logger.exiting(name, "postStop");
 	}
 
@@ -133,27 +200,33 @@ public class ClientActor extends UntypedActor {
 	@Override
 	public void onReceive(Object message) {
 		logger.entering(name, "onReceive");
-		if(message instanceof AddSession) {
-			logger.logp(Level.FINER, name, "onReceive", name + " <- AddSession: " + message);
-			AddSession ac = (AddSession) message;
-			if(sessions.contains(ac.getSessionId())) {
-				logger.logp(Level.SEVERE, name, "onReceive", "Client session id " + ac.getSessionId() + " already present in list");
+		if(message instanceof GetSnapshot) {
+			try {
+				Serialization serialization = SerializationExtension.get(getContext().system());
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				ObjectOutputStream oos = new ObjectOutputStream(baos);
+				oos.writeObject(handler);
+				List list = new ArrayList<>();
+				list.add(netServer);
+				list.add(sessionId);
+				list.add(childs);
+				list.add(baos.toByteArray());
+				byte[] currentSnapshot = serialization.findSerializerFor(list).toBinary(list);
+				getSender().tell(new Snapshot(Snapshot.ACTOR, 0, currentSnapshot), getSelf());
 			}
-			else {
-				logger.logp(Level.FINER, name, "onReceive", "Added client session id " + ac.getSessionId() + " to list");
-				sessions.add(ac.getSessionId());
+			catch(IOException ex) {
+				logger.throwing(name, "onReceive", ex);
 			}
 		}
-		else if(message instanceof RemoveSession) {
-			logger.logp(Level.FINER, name, "onReceive", name + " <- RemoveSession: " + message);
-			RemoveSession rc = (RemoveSession) message;
-			if(!sessions.contains(rc.getSessionId())) {
-				logger.logp(Level.SEVERE, name, "onReceive", "Client session id " + rc.getSessionId() + " not found in list");
-			}
-			else {
-				logger.logp(Level.FINER, name, "onReceive", "Removed client session id " + rc.getSessionId() + " from list");
-				sessions.remove(new Integer(rc.getSessionId()));
-			}
+		else if(message instanceof ClientConnected) {
+			logger.logp(Level.FINER, name, "onReceive", name + " <- ClientConnected: " + message);
+			ClientConnected cc = (ClientConnected) message;
+			sessionId = cc.getSessionId();
+			netServer = getSender();
+		}
+		else if(message instanceof ClientDisconnected) {
+			logger.logp(Level.FINER, name, "onReceive", name + " <- ClientDisconnected: " + message);
+			netServer = null;
 		}
 		else if(message instanceof StorageResult) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- StorageResult: " + message);
@@ -166,33 +239,33 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
+				SessionMessage msg = new SessionMessage(sessionId, false, new SystemMessage("Exception during message processing: " + sw.toString()));
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
+			}
+			try {
+				Serialization serialization = SerializationExtension.get(getContext().system());
+				ByteArrayOutputStream baos = new ByteArrayOutputStream();
+				ObjectOutputStream oos = new ObjectOutputStream(baos);
+				oos.writeObject(handler);
+				List list = new ArrayList<>();
+				list.add(netServer);
+				list.add(sessionId);
+				list.add(childs);
+				list.add(baos.toByteArray());
+				byte[] currentSnapshot = serialization.findSerializerFor(list).toBinary(list);
+				snapshotId++;
+				backupManager.tell(new Snapshot(Snapshot.ACTOR, snapshotId, currentSnapshot), getSelf());
+			}
+			catch(IOException ex) {
+				logger.throwing(name, "onReceive", ex);
 			}
 		}
 		else if(message instanceof InitFail) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- InitFail: " + message);
-			SessionMessage msg = new SessionMessage(sessions, new SystemMessage(((InitFail) message).getError()));
+			SessionMessage msg = new SessionMessage(sessionId, false, new SystemMessage(((InitFail) message).getError()));
 			logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 			netServer.tell(msg, getSelf());
-		}
-		else if(message instanceof ClientFindResult) {
-			logger.logp(Level.FINER, name, "onReceive", name + " <- ClientFindResult: " + message);
-			ClientFindResult cfr = (ClientFindResult) message;
-			logger.logp(Level.FINER, name, "onReceive", "Handling client search result to client message handler");
-			try {
-				handler.execute(new ClientResult(cfr.getRef() != null, cfr.getClient()), "manager");
-			}
-			catch(Exception e) {
-				logger.throwing(name, "onReceive", e);
-				StringWriter sw = new StringWriter();
-				PrintWriter pw = new PrintWriter(sw);
-				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
-				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
-				netServer.tell(msg, getSelf());
-			}
 		}
 		else if(message instanceof Message) {
 			logger.logp(Level.FINE, name, "onReceive", name + " <- Message: " + message.getClass().getName());
@@ -208,13 +281,31 @@ public class ClientActor extends UntypedActor {
 			}
 			logger.logp(Level.FINEST, name, "onReceive", log);
 			try {
-				if(getSender().path().name().equals("enqueuer")) {
+				if(getSender().equals(watcher)) {
 					logger.logp(Level.FINER, name, "onReceive", "Message from client");
 					handler.execute((Message) message, "client");
+					watcher.tell(new Ready(), getSelf());
 				}
 				else {
 					logger.logp(Level.FINER, name, "onReceive", "Message from other client actor: \"" + getSender().path().name() + "\"");
 					handler.execute((Message) message, getSender().path().name());
+				}
+				try {
+					Serialization serialization = SerializationExtension.get(getContext().system());
+					ByteArrayOutputStream baos = new ByteArrayOutputStream();
+					ObjectOutputStream oos = new ObjectOutputStream(baos);
+					oos.writeObject(handler);
+					List list = new ArrayList<>();
+					list.add(netServer);
+					list.add(sessionId);
+					list.add(childs);
+					list.add(baos.toByteArray());
+					byte[] currentSnapshot = serialization.findSerializerFor(list).toBinary(list);
+					snapshotId++;
+					backupManager.tell(new Snapshot(Snapshot.ACTOR, snapshotId, currentSnapshot), getSelf());
+				}
+				catch(IOException ex) {
+					logger.throwing(name, "onReceive", ex);
 				}
 			}
 			catch(Exception e) {
@@ -222,14 +313,14 @@ public class ClientActor extends UntypedActor {
 				StringWriter sw = new StringWriter();
 				PrintWriter pw = new PrintWriter(sw);
 				e.printStackTrace(pw);
-				SessionMessage msg = new SessionMessage(sessions, new SystemMessage("Exception during message processing: " + sw.toString()));
+				SessionMessage msg = new SessionMessage(sessionId, false, new SystemMessage("Exception during message processing: " + sw.toString()));
 				logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 				netServer.tell(msg, getSelf());
 			}
 		}
 		else if(message instanceof String) {
 			logger.logp(Level.FINER, name, "onReceive", name + " <- String: " + message);
-			SessionMessage msg = new SessionMessage(sessions, new SystemMessage((String) message));
+			SessionMessage msg = new SessionMessage(sessionId, false, new SystemMessage((String) message));
 			logger.logp(Level.FINER, name, "onReceive", "SessionMessage -> NetServer: " + msg);
 			netServer.tell(msg, getSelf());
 		}
@@ -239,20 +330,30 @@ public class ClientActor extends UntypedActor {
 	
 	public void sendClient(Message message) {
 		logger.entering(name, "sendClient");
-		SessionMessage msg = new SessionMessage(sessions, message);
-		logger.logp(Level.FINE, name, "sendClient", "SessionMessage -> NetServer: " + msg);
-		String log = "Message: " + message.getClass().getName() + "\n";
-		for(Field field : message.getClass().getDeclaredFields()) {
-			try {
-				field.setAccessible(true);
-				Class type = field.getType();
-				Object value = field.get(message);
-				log += type.getName() + " " + field.getName() + " = " + value + "\n";
+		if(netServer != null) {
+			SessionMessage msg = new SessionMessage(sessionId, false, message);
+			logger.logp(Level.FINE, name, "sendClient", "SessionMessage -> NetServer: " + msg);
+			String log = "Message: " + message.getClass().getName() + "\n";
+			for(Field field : message.getClass().getDeclaredFields()) {
+				try {
+					field.setAccessible(true);
+					Class type = field.getType();
+					Object value = field.get(message);
+					log += type.getName() + " " + field.getName() + " = " + value + "\n";
+				}
+				catch(IllegalAccessException iae) {}
 			}
-			catch(IllegalAccessException iae) {}
+			logger.logp(Level.FINEST, name, "sendClient", log);
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			try {
+				ObjectOutputStream oos = new ObjectOutputStream(baos);
+				oos.writeObject(message);
+				netServer.tell(new SessionMessage(sessionId, false, baos.toByteArray()), getSelf());
+			}
+			catch(IOException ex) {
+				logger.throwing(name, "sendClient", ex);
+			}
 		}
-		logger.logp(Level.FINEST, name, "sendClient", log);
-		netServer.tell(msg, getSelf());
 		logger.exiting(name, "sendClient");
 	}
 	
@@ -301,5 +402,25 @@ public class ClientActor extends UntypedActor {
 		logger.logp(Level.FINEST, name, "sendChild", log);
 		childs[num].tell(message, getSelf());
 		logger.exiting(name, "sendChild");
+	}
+	
+	public void saveSnapshot() {
+		try {
+			Serialization serialization = SerializationExtension.get(getContext().system());
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			ObjectOutputStream oos = new ObjectOutputStream(baos);
+			oos.writeObject(handler);
+			List list = new ArrayList<>();
+			list.add(netServer);
+			list.add(sessionId);
+			list.add(childs);
+			list.add(baos.toByteArray());
+			byte[] currentSnapshot = serialization.findSerializerFor(list).toBinary(list);
+			snapshotId++;
+			backupManager.tell(new Snapshot(Snapshot.ACTOR, snapshotId, currentSnapshot), getSelf());
+		}
+		catch(IOException ex) {
+			logger.throwing(name, "onReceive", ex);
+		}
 	}
 }

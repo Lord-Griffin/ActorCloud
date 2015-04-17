@@ -15,6 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.enqueuer;
 
+import akka.actor.ActorRef;
 import java.util.Date;
 
 /**
@@ -22,27 +23,41 @@ import java.util.Date;
  * @author Griffin
  */
 public class TokenData {
-	
-	private String client;
+//	private String client;
+	private ActorRef actor;
 	private Date timestamp;
-	
-	public TokenData() {}
-	
-	public TokenData(String client, Date timestamp) {
-		this.client = client;
+		
+	public TokenData(/*String client, */ActorRef actor, Date timestamp) {
+//		this.client = client;
+		this.actor = actor;
 		this.timestamp = timestamp;
 	}
 	
-	public String getClient() {
-		return client;
+//	public String getClient() {
+//		return client;
+//	}
+	
+	public ActorRef getActor() {
+		return actor;
+	}
+	
+	public void setActor(ActorRef actor) {
+		this.actor = actor;
 	}
 	
 	public Date getTimestamp() {
 		return timestamp;
 	}
 	
+	public String getDump() {
+		String dump = "";
+		dump += "      actor " + actor + "\n";
+		dump += "      timestamp" + timestamp.getTime() + "\n";
+		return dump;
+	}
+	
 	@Override
 	public String toString() {
-		return "Client " + client + ", timestamp " + timestamp.getTime();
+		return "Actor " + actor + ", timestamp " + timestamp.getTime();
 	}
 }

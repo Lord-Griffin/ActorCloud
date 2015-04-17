@@ -15,32 +15,39 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
+import java.io.Serializable;
 import java.net.InetAddress;
 
 /**
  *
  * @author Griffin
  */
-public class ClientAuthenticated {
+public class ClientAuthenticated implements Serializable {
 	
-	private String login;
-	private InetAddress address;
-	private int sessionId;
-	private String messageHandler;
-	private String childHandler;
+	private final String login;
+	private final String actor;
+	private final InetAddress address;
+	private final int sessionId;
+	private final String messageHandler;
+	private final String childHandler;
+	private final int maxSessions;
 	
-	public ClientAuthenticated() {}
-	
-	public ClientAuthenticated(String login, InetAddress address, int sessionId, String messageHandler, String childHandler) {
+	public ClientAuthenticated(String login, String actor, InetAddress address, int sessionId, String messageHandler, String childHandler, int maxSessions) {
 		this.login = login;
+		this.actor = actor;
 		this.address = address;
 		this.sessionId = sessionId;
 		this.messageHandler = messageHandler;
 		this.childHandler = childHandler;
+		this.maxSessions = maxSessions;
 	}
 	
 	public String getLogin() {
 		return login;
+	}
+	
+	public String getActor() {
+		return actor;
 	}
 	
 	public InetAddress getAddress() {
@@ -59,8 +66,12 @@ public class ClientAuthenticated {
 		return childHandler;
 	}
 	
+	public int getMaxSessions() {
+		return maxSessions;
+	}
+	
 	@Override
 	public String toString() {
-		return "Login \"" + login + "\", address " + address + ", authentication server session id " + sessionId + ", main message handler class " + messageHandler + ", child message handler class " + childHandler;
+		return "Login \"" + login + "\", address " + address + ", authentication server session id " + sessionId + ", main message handler class " + messageHandler + ", child message handler class " + childHandler + ", max sessions " + maxSessions;
 	}
 }

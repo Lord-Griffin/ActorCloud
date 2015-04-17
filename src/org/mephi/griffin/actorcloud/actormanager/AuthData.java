@@ -16,30 +16,90 @@
 package org.mephi.griffin.actorcloud.actormanager;
 
 import akka.actor.ActorRef;
+import akka.actor.Address;
 import java.net.InetAddress;
+import org.mephi.griffin.actorcloud.common.ServerInfo;
 
 /**
  *
  * @author Griffin
  */
 public class AuthData {
+	public static final int NODE_WAITING = 1;
+	public static final int ACTOR_WAITING = 2;
+	public static final int NET_NODE_WAITING = 3;
+	public static final int READY = 4;
 	
+	private int state;
+	private ActorRef actor;
+	private Address actorNode;
+	private Address netNode;
+	private ServerInfo netServer;
 	private String token;
 	private InetAddress address;
+	private ActorRef authServer;
 	private int authSessionId;
-	//private ActorRef authServer;
 	
-	public AuthData() {}
-	
-	public AuthData(InetAddress address, int authSessionId/*, ActorRef authServer*/) {
-		this(null, address, authSessionId/*, authServer*/);
-	}
-	
-	public AuthData(String token, InetAddress address, int authSessionId/*, ActorRef authServer*/) {
-		this.token = token;
+	public AuthData(InetAddress address, int authSessionId, ActorRef authServer) {
+		this.state = NODE_WAITING;
+		this.actor = null;
+		this.actorNode = null;
+		this.netNode = null;
+		this.token = null;
 		this.address = address;
 		this.authSessionId = authSessionId;
-		//this.authServer = authServer;
+		this.authServer = authServer;
+	}
+	
+	public AuthData(InetAddress address, int authSessionId, ActorRef authServer, ActorRef actor, Address actorNode) {
+		this.state = NET_NODE_WAITING;
+		this.actor = actor;
+		this.actorNode = actorNode;
+		this.netNode = null;
+		this.token = null;
+		this.address = address;
+		this.authSessionId = authSessionId;
+		this.authServer = authServer;
+	}
+	
+	public void setState(int state) {
+		this.state = state;
+	}
+	
+	public int getState() {
+		return state;
+	}
+	
+	public void setActor(ActorRef actor) {
+		this.actor = actor;
+	}
+	
+	public ActorRef getActor() {
+		return actor;
+	}
+	
+	public void setActorNode(Address node) {
+		actorNode = node;
+	}
+	
+	public Address getActorNode() {
+		return actorNode;
+	}
+	
+	public void setNetNode(Address node) {
+		netNode = node;
+	}
+	
+	public Address getNetNode() {
+		return netNode;
+	}
+	
+	public void setNetServer(ServerInfo netServer) {
+		this.netServer = netServer;
+	}
+	
+	public ServerInfo getNetServer() {
+		return netServer;
 	}
 	
 	public void setToken(String token) {
@@ -58,9 +118,37 @@ public class AuthData {
 		return authSessionId;
 	}
 	
-	/*public ActorRef getAuthServer() {
+	public ActorRef getAuthServer() {
 		return authServer;
-	}*/
+	}
+	
+	public String getDump() {
+		String dump = "";
+		switch(state) {
+			case NODE_WAITING:
+				dump += "      state NODE_WAITING\n";
+				break;
+			case ACTOR_WAITING:
+				dump += "      state ACTOR_WAITING\n";
+				break;
+			case NET_NODE_WAITING:
+				dump += "      state NET_NODE_WAITING\n";
+				break;
+			case READY:
+				dump += "      state READY\n";
+				break;
+		}
+		dump += "      actor " + actor + "\n";
+		dump += "      actorNode " + actorNode + "\n";
+		dump += "      netNode " + netNode + "\n";
+		dump += "      netServer:\n";
+		dump += netServer.getDump();
+		dump += "      token " + token + "\n";
+		dump += "      address " + address + "\n";
+		dump += "      authServer " + authServer + "\n";
+		dump += "      auhtSessionId " + authSessionId + "\n";
+		return dump;
+	}
 	
 	@Override
 	public String toString() {

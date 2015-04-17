@@ -15,6 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
+import org.mephi.griffin.actorcloud.client.messages.Message;
 import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import java.io.PrintWriter;
@@ -85,14 +86,14 @@ public class ChildActor extends UntypedActor {
 		}
 		if(!errors.equals("")) {
 			logger.logp(Level.WARNING, name, "preStart", "There was errors loading message handler:\n" + errors);
-			InitFail msg = new InitFail(InitFail.CHILD, getSelf().path().name(), "Error initializing message handler:\n" + errors);
+			InitFail msg = new InitFail(InitFail.CHILD, getSelf().path().name(), null, 0, "Error initializing message handler:\n" + errors);
 			logger.logp(Level.FINER, name, "preStart", "InitFail -> ClientActor(" + getContext().parent().path().name() + "): " + msg);
 			getContext().parent().tell(msg, getSelf());
 			getContext().stop(getSelf());
 		}
 		else {
 			logger.logp(Level.INFO, name, "preStart", "Child actor " + getSelf().path().name() + " for client \"" + getContext().parent().path().name() + "\" started");
-			InitSuccess msg = new InitSuccess(InitSuccess.CHILD, getSelf().path().name());
+			InitSuccess msg = new InitSuccess(InitSuccess.CHILD, getSelf().path().name(), null, 0);
 			logger.logp(Level.FINER, name, "preStart", "InitSuccess -> ClientActor(" + getContext().parent().path().name() + "): " + msg);
 			getContext().parent().tell(msg, getSelf());
 			handler.init();

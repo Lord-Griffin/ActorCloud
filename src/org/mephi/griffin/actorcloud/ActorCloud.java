@@ -15,38 +15,42 @@
  */
 package org.mephi.griffin.actorcloud;
 
-import org.mephi.griffin.actorcloud.nodemanager.NodeManager;
+import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-import akka.cluster.Cluster;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
-import org.mephi.griffin.actorcloud.actormanager.Manager;
+import org.mephi.griffin.actorcloud.nodemanager.NodeManager;
 
 /**
  *
  * @author Griffin
  */
 public class ActorCloud {
-
+	static boolean run;
 	/**
 	 *
 	 * @param args
+	 * @throws java.io.IOException
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
+		run = true;
 		try {
 			LogManager.getLogManager().readConfiguration(new FileInputStream("logging.properties"));
 			final ActorSystem system = ActorSystem.create("actorcloud");
 			system.log().info("Starting system...");
-			System.out.println(system.settings().config().getAnyRef("actorcloud.test"));
-			Cluster.get(system).join(Cluster.get(system).selfAddress());
-			system.actorOf(Props.create(NodeManager.class), "cluster-listener");
-			system.actorOf(Props.create(Manager.class), "actor-manager");
+			system.actorOf(Props.create(NodeManager.class), "node-manager");
+			Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+				@Override
+				public void run() {
+					run = false;
+					system.actorSelection("/user/node-manager").tell(new Shutdown(), ActorRef.noSender());
+					system.awaitTermination();
+				}
+			}));
 		}
 		catch (IOException | SecurityException ex) {
 			Logger.getLogger(ActorCloud.class.getName()).log(Level.SEVERE, null, ex);

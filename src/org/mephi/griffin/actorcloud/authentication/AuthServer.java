@@ -15,9 +15,10 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
-import org.mephi.griffin.actorcloud.actormanager.AuthConfirmation;
+import org.mephi.griffin.actorcloud.actormanager.messages.AuthConfirmation;
 import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
+import com.typesafe.config.Config;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -36,8 +37,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.net.ssl.KeyManagerFactory;
@@ -50,14 +53,15 @@ import org.apache.mina.filter.codec.serialization.ObjectSerializationCodecFactor
 import org.apache.mina.filter.ssl.SslFilter;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
-import org.mephi.griffin.actorcloud.client.AuthResponse;
-import org.mephi.griffin.actorcloud.client.ErrorMessage;
+import org.mephi.griffin.actorcloud.client.messages.AuthResponse;
+import org.mephi.griffin.actorcloud.client.messages.ErrorMessage;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
-import org.mephi.griffin.actorcloud.actormanager.ActorRefMessage;
+import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
+import org.mephi.griffin.actorcloud.nodemanager.messages.ManagerNode;
 import org.mephi.griffin.actorcloud.storage.Entity;
 import org.mephi.griffin.actorcloud.storage.SimpleQuery;
 import org.mephi.griffin.actorcloud.storage.Storage;
@@ -68,26 +72,26 @@ import org.mephi.griffin.actorcloud.storage.StorageResult;
  * @author Griffin
  */
 public class AuthServer extends UntypedActor {
-	
+	private static final int NODE_WAITING = 1;
+	private static final int READY = 2;
+			
 	private static final Logger logger = Logger.getLogger(AuthServer.class.getName());
-	private ActorRef manager;
+	
+	private ActorRef nodeManager;
 	private Storage storage;
 	private List<InetSocketAddress> addresses;
 	private SocketAcceptor acceptor;
+	private int state;
 	private final Map<Integer, IoSession> sessions;
 	private final Map<Integer, AuthData> clients;
 	
-	public AuthServer(List<InetSocketAddress> addresses) {
+	public AuthServer(ActorRef nodeManager) {
 		logger.entering("AuthServer", "Constructor", addresses);
-		String log = "Addresses: ";
-		for(int i = 0; i < addresses.size() - 1; i++) log += addresses.get(i) + ", ";
-		log += addresses.get(addresses.size() - 1);
-		logger.logp(Level.FINER, "AuthServer", "Constructor", log);
-		this.addresses = addresses;
+		this.nodeManager = nodeManager;
+		storage = null;
+		state = READY;
 		sessions = new HashMap<>();
 		clients = new HashMap<>();
-		manager = getContext().parent();
-		storage = null;
 		logger.exiting("AuthServer", "Constructor");
 	}
 	
@@ -96,22 +100,34 @@ public class AuthServer extends UntypedActor {
 		logger.entering("AuthServer", "preStart");
 		logger.logp(Level.FINE, "AuthServer", "preStart", "Authentication server starts");
 		try {
-			KeyStore keyStore = KeyStore.getInstance("jks");
-			keyStore.load(new FileInputStream("D:\\server.jks"), "abcdef".toCharArray());
-			KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
-			kmf.init(keyStore, "abcdef".toCharArray());
-			KeyStore trustStore = KeyStore.getInstance("jks");
-			trustStore.load(new FileInputStream("D:\\ca.jks"), "abcdef".toCharArray());
-			TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
-			tmf.init(trustStore);
-			SSLContext sslContext = SSLContext.getInstance("SSL");
-			sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+			Config config = getContext().system().settings().config();
+			List<String> ips = config.getStringList("actorcloud.auth.ips");
+			int port = config.getInt("actorcloud.auth.port");
+			addresses = new ArrayList<>();
+			for(String ip : ips) addresses.add(new InetSocketAddress(ip, port));
 			acceptor = new NioSocketAcceptor();
 			DefaultIoFilterChainBuilder chain = acceptor.getFilterChain();
-			SslFilter sslFilter = new SslFilter(sslContext);
-			sslFilter.setNeedClientAuth(true);
-			sslFilter.setUseClientMode(false);
-			chain.addLast("sslFilter", sslFilter);
+			if(config.getBoolean("actorcloud.auth.ssl")) {
+				String keyStoreFile = config.getString("actorcloud.auth.keystore.file");
+				String keyStorePass = config.getString("actorcloud.auth.keystore.pass");
+				String privateKeyPass = config.getString("actorcloud.auth.keystore.pkpass");
+				String trustStoreFile = config.getString("actorcloud.auth.truststore.file");
+				String trustStorePass = config.getString("actorcloud.auth.truststore.pass");
+				KeyStore keyStore = KeyStore.getInstance("jks");
+				keyStore.load(new FileInputStream(keyStoreFile), keyStorePass.toCharArray());
+				KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
+				kmf.init(keyStore, privateKeyPass.toCharArray());
+				KeyStore trustStore = KeyStore.getInstance("jks");
+				trustStore.load(new FileInputStream(trustStoreFile), trustStorePass.toCharArray());
+				TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
+				tmf.init(trustStore);
+				SSLContext sslContext = SSLContext.getInstance("SSL");
+				sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+				SslFilter sslFilter = new SslFilter(sslContext);
+				sslFilter.setNeedClientAuth(true);
+				sslFilter.setUseClientMode(false);
+				chain.addLast("sslFilter", sslFilter);
+			}
 			chain.addLast("serializationFilter", new ProtocolCodecFilter(new ObjectSerializationCodecFactory()));
 			acceptor.setHandler(new AuthServerHandler(getSelf()));
 			acceptor.bind(addresses);
@@ -146,15 +162,15 @@ public class AuthServer extends UntypedActor {
 			logger.logp(Level.INFO, "AuthServer", "preStart", log);
 			RegisterServer message = new RegisterServer(RegisterServer.AUTH, info);
 			logger.logp(Level.FINER, "AuthServer", "preStart", "RegisterServer -> Manager: {0}", message);
-			manager.tell(message, getSelf());
+			nodeManager.tell(message, getSelf());
 			logger.logp(Level.INFO, "AuthServer", "preStart", "Authentication server is started");
 		}
 		catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | KeyManagementException ex) {
 			logger.logp(Level.SEVERE, "AuthServer", "preStart", "Failed to start authentication server");
 			logger.throwing("AuthServer", "preStart", ex);
-			InitFail message = new InitFail(InitFail.AUTH, "", "");
+			InitFail message = new InitFail(InitFail.AUTH, "", null, 0, "");
 			logger.logp(Level.FINER, "AuthServer", "preStart", "InitFail -> Manager: {0}", message);
-			manager.tell(message, getSelf());
+			nodeManager.tell(message, getSelf());
 			getContext().stop(getSelf());
 		}
 		logger.exiting("AuthServer", "preStart");
@@ -173,6 +189,25 @@ public class AuthServer extends UntypedActor {
 			}
 			acceptor.dispose();
 		}
+		String dump = "Data dump:\n";
+		dump += "  nodeManager " + nodeManager + "\n";
+		switch(state) {
+			case NODE_WAITING:
+				dump += "  state NODE_WAITING\n";
+				break;
+			case READY:
+				dump += "  state READY\n";
+				break;
+		}
+		dump += "  session ids ";
+		for(Integer id : sessions.keySet()) dump += id + " ";
+		dump += "\n";
+		dump += "  clients:\n";
+		for(Entry<Integer, AuthData> entry : clients.entrySet()) {
+			dump += "    " + entry.getKey() + ":\n";
+			dump += entry.getValue().getDump();
+		}
+		logger.logp(Level.FINEST, "Authserver", "postStop", dump);
 		logger.logp(Level.INFO, "AuthServer", "postStop", "Authentication server stopped");
 		logger.exiting("AuthServer", "postStop");
 	}
@@ -184,6 +219,7 @@ public class AuthServer extends UntypedActor {
 	@Override
 	public void onReceive(Object message) {
 		logger.entering("AuthServer", "onReceive");
+		logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- {0}: {1}", new Object[] {message.getClass().getSimpleName(), message});
 		if(message instanceof ActorRefMessage) {
 			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- ActorRefMessage: " + message);
 			ActorRefMessage arm = (ActorRefMessage) message;
@@ -194,25 +230,25 @@ public class AuthServer extends UntypedActor {
 					logger.logp(Level.FINE, "AuthServer", "onReceive", "Storage unavailable");
 					UnregisterServer msg = new UnregisterServer(UnregisterServer.AUTH);
 					logger.logp(Level.FINER, "AuthServer", "onReceive", "UnregisterServer -> Manager: " + msg);
-					manager.tell(msg, getSelf());
+					nodeManager.tell(msg, getSelf());
 					getContext().stop(getSelf());
 				}
 			}
 		}
 		else if(message instanceof AuthData) {
-			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- CheckAuth: " + message);
-			AuthData ca = (AuthData) message;
+			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- AuthData: " + message);
+			AuthData ad = (AuthData) message;
 			if(storage != null) {
-				logger.logp(Level.FINER, "AuthServer", "checkAuth", "Request data for client \"" + ca.getLogin() + "\"");
-				SimpleQuery query = new SimpleQuery("name", SimpleQuery.EQUAL, ca.getLogin());
+				logger.logp(Level.FINER, "AuthServer", "checkAuth", "Request data for client \"" + ad.getLogin() + "\"");
+				SimpleQuery query = new SimpleQuery("name", SimpleQuery.EQUAL, ad.getLogin());
 				int requestId = storage.get("clients", query, null);
-				AuthData data = new AuthData(ca.getLogin(), ca.getHash(), ca.getSessionId(), ca.getSession());
+				AuthData data = new AuthData(ad.getLogin(), ad.getHash(), ad.getActor(), ad.getSessionId(), ad.getSession());
 				logger.logp(Level.FINER, "AuthServer", "checkAuth", "Put client data to waiting queue: Storage request id " + requestId + ", " + data);
 				clients.put(requestId, data);
 			}
 			else {
 				logger.logp(Level.FINER, "AuthServer", "checkAuth", "Storage unavailable");
-				decline(ca.getSession(), new ErrorMessage(ErrorMessage.STOR_ERR, "Storage unavailable", null));
+				decline(ad.getSession(), new ErrorMessage(ErrorMessage.STOR_ERR, "Storage unavailable", null));
 			}
 		}
 		else if(message instanceof RemoveSession) {
@@ -223,7 +259,7 @@ public class AuthServer extends UntypedActor {
 			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- StorageResult: " + message);
 			StorageResult sr = (StorageResult) message;
 			if(sr.getOp() == StorageResult.GET) {
-				AuthData clientData = clients.remove(sr.getId());
+				AuthData clientData = clients.get(sr.getId());
 				if(clientData != null) {
 					logger.logp(Level.FINER, "AuthServer", "onReceive", "Got client data from queue by storage request id " + sr.getId() + ": " + clientData);
 					if(sr.error()) {
@@ -257,9 +293,16 @@ public class AuthServer extends UntypedActor {
 								else System.out.println("o_O");
 								String messageHandler = (String) entity.get("messageHandler");
 								String childHandler = (String) entity.get("childHandler");
-								ClientAuthenticated msg = new ClientAuthenticated(clientData.getLogin(), address, clientData.getSessionId(), messageHandler, childHandler);
-								logger.logp(Level.FINER, "AuthServer", "onReceive", "ClientAuthenticated -> Manager: " + msg);
-								manager.tell(msg, getSelf());
+								clientData.setAddress(address);
+								clientData.setMessageHandler(messageHandler);
+								clientData.setChildHandler(childHandler);
+								clientData.setAuthOk(true);
+								if(state == READY) {
+									GetManagerNode msg = new GetManagerNode();
+									logger.logp(Level.FINER, "AuthServer", "onReceive", "GetManagerNode -> NodeManager: " + msg);
+									nodeManager.tell(msg, getSelf());
+									state = NODE_WAITING;
+								}
 							}
 							else {
 								logger.logp(Level.INFO, "AuthServer", "onReceive", "Wrong credentials: login \"" + clientData.getLogin() + "\"");
@@ -277,6 +320,20 @@ public class AuthServer extends UntypedActor {
 				}
 			}
 		}
+		else if(message instanceof ManagerNode) {
+			ManagerNode mn = (ManagerNode) message;
+			state = READY;
+			Iterator<AuthData> iterator = clients.values().iterator();
+			while(iterator.hasNext()) {
+				AuthData authData = iterator.next();
+				if(authData.isAuthOk()) {
+					ClientAuthenticated msg = new ClientAuthenticated(authData.getLogin(), authData.getActor(), authData.getAddress(), authData.getSessionId(), authData.getMessageHandler(), authData.getChildHandler(), 1);
+					logger.logp(Level.FINER, "AuthServer", "onReceive", "ClientAuthenticated -> ActorManager: " + msg);
+					getContext().actorSelection(mn.getAddress() + "/user/actor-manager").tell(msg, getSelf());
+					iterator.remove();
+				}
+			}
+		}
 		else if(message instanceof AuthConfirmation) {
 			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- AuthConfirmation: " + message);
 			AuthConfirmation ac = (AuthConfirmation) message;
@@ -290,7 +347,7 @@ public class AuthServer extends UntypedActor {
 			else
 				logger.logp(Level.FINER, "AuthServer", "onReceive", "Client session with id " + sessionId + " is not in waiting list");
 		}
-		if(message instanceof AuthDecline) {
+		else if(message instanceof AuthDecline) {
 			logger.logp(Level.FINER, "AuthServer", "onReceive", "AuthServer <- AuthDecline: " + message);
 			AuthDecline ad = (AuthDecline) message;
 			int sessionId = ad.getSessionId();

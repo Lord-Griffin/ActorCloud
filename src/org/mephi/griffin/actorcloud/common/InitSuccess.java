@@ -15,22 +15,27 @@
  */
 package org.mephi.griffin.actorcloud.common;
 
+import akka.actor.ActorRef;
+import java.io.Serializable;
+
 /**
  *
  * @author Griffin
  */
-public class InitSuccess {
+public class InitSuccess implements Serializable {
 	public static final int STORAGE = 1;
 	public static final int CLIENT = 100;
 	public static final int CHILD = 101;
 	private int type;
 	private String name;
+	private ActorRef authServer;
+	private int authSessionId;
 	
-	public InitSuccess() {}
-	
-	public InitSuccess(int type, String name) {
+	public InitSuccess(int type, String name, ActorRef authServer, int authSessionId) {
 		this.type = type;
 		this.name = name;
+		this.authServer = authServer;
+		this.authSessionId = authSessionId;
 	}
 	
 	public int getType() {
@@ -39,6 +44,14 @@ public class InitSuccess {
 	
 	public String getName() {
 		return name;
+	}
+	
+	public ActorRef getAuthServer() {
+		return authServer;
+	}
+	
+	public int getAuthSessionId() {
+		return authSessionId;
 	}
 	
 	@Override

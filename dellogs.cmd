@@ -1,0 +1,1 @@
+for /L %%i in (1,1,10) do rd /s /q C:\Users\Griffin\Desktop\Test\%%i\log

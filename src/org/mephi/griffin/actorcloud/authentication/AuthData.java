@@ -15,6 +15,8 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
+import java.io.Serializable;
+import java.net.InetAddress;
 import org.apache.mina.core.session.IoSession;
 import org.mephi.griffin.actorcloud.util.Coder;
 
@@ -22,19 +24,24 @@ import org.mephi.griffin.actorcloud.util.Coder;
  *
  * @author griffin
  */
-public class AuthData {
+public class AuthData implements Serializable {
 	private String login;
 	private byte[] hash;
+	private String actor;
 	private int sessionId;
 	private IoSession session;
+	private InetAddress address;
+	private String messageHandler;
+	private String childHandler;
+	private boolean authOk;
 	
-	public AuthData() {}
-	
-	public AuthData(String login, byte[] hash, int sessionId, IoSession session) {
+	public AuthData(String login, byte[] hash, String actor, int sessionId, IoSession session) {
 		this.login = login;
 		this.hash = hash;
+		this.actor = actor;
 		this.sessionId = sessionId;
 		this.session = session;
+		this.authOk = false;
 	}
 	
 	public String getLogin() {
@@ -45,12 +52,62 @@ public class AuthData {
 		return hash;
 	}
 	
+	public String getActor() {
+		return actor;
+	}
+	
 	public int getSessionId() {
 		return sessionId;
 	}
 	
 	public IoSession getSession() {
 		return session;
+	}
+	
+	public boolean isAuthOk() {
+		return authOk;
+	}
+	
+	public InetAddress getAddress() {
+		return address;
+	}
+	
+	public String getMessageHandler() {
+		return messageHandler;
+	}
+	
+	public String getChildHandler() {
+		return childHandler;
+	}
+	
+	public void setAuthOk(boolean authOk) {
+		this.authOk = authOk;
+	}
+	
+	public void setAddress(InetAddress address) {
+		this.address = address;
+	}
+	
+	public void setMessageHandler(String messageHandler) {
+		this.messageHandler = messageHandler;
+	}
+	
+	public void setChildHandler(String childHandler) {
+		this.childHandler = childHandler;
+	}
+	
+	public String getDump() {
+		String dump = "";
+		dump += "    login " + login + "\n";
+		dump += "    hash " + Coder.toHexString(hash) + "\n";
+		dump += "    actor " + actor + "\n";
+		dump += "    sessionId " + sessionId + "\n";
+		dump += "    session " + session + "\n";
+		dump += "    address" + address + "\n";
+		dump += "    messageHandler" + messageHandler + "\n";
+		dump += "    childHandler" + childHandler + "\n";
+		dump += "    authOk" + authOk + "\n";
+		return dump;
 	}
 	
 	@Override

@@ -16,59 +16,41 @@
 package org.mephi.griffin.actorcloud.actormanager;
 
 import akka.actor.ActorRef;
+import akka.actor.Address;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
  *
  * @author Griffin
  */
-public class ClientData {
+public class ClientData implements Serializable {
 	
 	private List<AuthData> authData;
-	private boolean actorState;
-	private ActorRef actor;
-	private int connections;
+	private List<SessionData> sessions;
+	private List<ActorRef> closedSessions;
+	private String messageHandler;
+	private String childHandler;
+	private int maxSessions;
 	
-	public ClientData(ActorRef actor) {
+	public ClientData(String messageHandler, String childHandler, int maxSessions) {
 		authData = new ArrayList<>();
-		actorState = false;
-		this.actor = actor;
-		connections = 0;
+		sessions = new ArrayList<>();
+		closedSessions = new ArrayList<>();
+		this.messageHandler = messageHandler;
+		this.childHandler = childHandler;
+		this.maxSessions = maxSessions;
 	}
 	
-	public ClientData(InetAddress address, int sessionId, ActorRef actor/*, ActorRef authServer*/) {
-		this(actor);
-		authData.add(new AuthData(address, sessionId/*, authServer*/));
+	public void addAuthData(InetAddress address, int sessionId, ActorRef authServer) {
+		authData.add(new AuthData(address, sessionId, authServer));
 	}
 	
-	public void addAuthData(InetAddress address, int sessionId/*, ActorRef authServer*/) {
-		authData.add(new AuthData(address, sessionId/*, authServer*/));
-	}
-	
-	public void addAuthData(String token, InetAddress address, int sessionId/*, ActorRef authServer*/) {
-		authData.add(new AuthData(token, address, sessionId/*, authServer*/));
-	}
-	
-	public void addConnection() {
-		connections++;
-	}
-	
-	public void removeConnection() {
-		connections--;
-	}
-	
-	public void setActorState(boolean ready) {
-		this.actorState = ready;
-	}
-	
-	public boolean isActorReady() {
-		return actorState;
-	}
-	
-	public ActorRef getActor() {
-		return actor;
+	public void addAuthData(InetAddress address, int sessionId, ActorRef authServer, ActorRef actor, Address actorNode) {
+		authData.add(new AuthData(address, sessionId, authServer, actor, actorNode));
 	}
 	
 	public List<AuthData> getAuthData() {
@@ -76,23 +58,90 @@ public class ClientData {
 	}
 	
 	public AuthData getAuthData(String token) {
-		for(AuthData authData : this.authData) {
-			if(authData.getToken().equals(token))
-				return authData;
+		for(AuthData authDataEntry : this.authData) {
+			if(authDataEntry.getToken().equals(token))
+				return authDataEntry;
 		}
 		return null;
 	}
 	
-	public int getConnections() {
-		return connections;
+	public void addSession(ActorRef actor, Address actorNode, Address netNode) {
+		sessions.add(new SessionData(actor, actorNode, netNode));
+	}
+	
+	public void closeSession(ActorRef actor) {
+		closedSessions.add(actor);
+	}
+	
+	public List<SessionData> getSessions() {
+		return sessions;
+	}
+	
+	public List<ActorRef> getClosedSessions() {
+		return closedSessions;
+	}
+	
+	public String getMessageHandler() {
+		return messageHandler;
+	}
+	
+	public String getChildHandler() {
+		return childHandler;
+	}
+	
+	public int getMaxSessions() {
+		return maxSessions;
+	}
+	
+	public void merge(ClientData data) {
+		this.authData.addAll(data.authData);
+		this.sessions.addAll(data.sessions);
+		Iterator<SessionData> iterator = sessions.iterator();
+		while(iterator.hasNext()) {
+			SessionData sd = iterator.next();
+			if(data.closedSessions.contains(sd.getActor()))
+				iterator.remove();
+		}
+	}
+	
+	public ClientData getSyncCopy() {
+		ClientData cd = new ClientData(messageHandler, childHandler, maxSessions);
+		for(SessionData sd : sessions)
+			cd.addSession(sd.getActor(), sd.getActorNode(), sd.getNetNode());
+		for(ActorRef ar : closedSessions)
+			cd.closeSession(ar);
+		return cd;
+	}
+	
+	public String getDump() {
+		String dump = "";
+		dump += "    messageHandler " + messageHandler + "\n";
+		dump += "    childHandler " + childHandler + "\n";
+		dump += "    maxSessions " + maxSessions + "\n";
+		dump += "    authData:\n";
+		int i = 0;
+		for(AuthData ad : authData) {
+			dump += "      " + i++ + ":\n";
+			dump += ad.getDump();
+		}
+		dump += "    sessions:\n";
+		i = 0;
+		for(SessionData sd : sessions) {
+			dump += "      " + i++ + ":\n";
+			dump += sd.getDump();
+		}
+		dump += "    closedSessions:\n";
+		i = 0;
+		for(ActorRef ar : closedSessions) {
+			dump += "      " + i++ + ":\n";
+			dump += ar + "\n";
+		}
+		return dump;
 	}
 	
 	@Override
 	public String toString() {
-		String res = "Actor " + actor + " is";
-		if(!actorState) res += " not";
-		res += " ready";
-		if(actorState) res += ", and has " + connections + " connections";
+		String res = "";
 		if(!authData.isEmpty()) {
 			res += ". Sessions waiting for token:\n";
 			for(AuthData data : authData) {

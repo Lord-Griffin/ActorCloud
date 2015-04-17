@@ -15,64 +15,41 @@
  */
 package org.mephi.griffin.actorcloud.netserver;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
-import org.mephi.griffin.actorcloud.client.Message;
+import java.io.Serializable;
 
 /**
  *
  * @author Griffin
  */
-public class SessionMessage {
+public class SessionMessage implements Serializable {
 	
 	private int sessionId;
-	private Set<Integer> sessionIds;
-	private Message message;
+	private boolean inbound;
+	private Object message;
 	
-	public SessionMessage() {}
-	
-	public SessionMessage(int sessionId, Message message) {
+	public SessionMessage(int sessionId, boolean inbound, Object message) {
 		this.sessionId = sessionId;
-		this.sessionIds = null;
-		this.message = message;
-	}
-	
-	public SessionMessage(Set<Integer> sessionIds, Message message) {
-		this.sessionIds = sessionIds;
+		this.inbound = inbound;
 		this.message = message;
 	}
 	
 	public boolean isInbound() {
-		return sessionIds == null;
+		return inbound;
 	}
 	
 	public int getSessionId() {
-		if(!isInbound()) return -1;
 		return sessionId;
 	}
 	
-	public Set<Integer> getSessionIds() {
-		return sessionIds;
-	}
-	
-	public Message getMessage() {
+	public Object getMessage() {
 		return message;
 	}
 	
 	@Override
 	public String toString() {
 		String res = "Message ";
-		if(isInbound()) res += "from ";
-		else res += "to ";
-		res += "sessions with ids ";
-		Iterator<Integer> iter = sessionIds.iterator();
-		if(!sessionIds.isEmpty()) {
-			res += iter.next();
-			do {
-				res += ", " + iter.next();
-			} while(iter.hasNext());
-		}
+		if(isInbound()) res += "from session with id " + sessionId;
+		else res += "to session with id " + sessionId;
 		res += ": " + message.getClass().getName();
 		return res;
 	}

@@ -24,11 +24,13 @@ limitations under the License.
 			<fileNamePattern>log/system-%d{yyyy-MM-dd}.log</fileNamePattern>
 		</rollingPolicy>
 		<encoder>
-			<pattern>%date{dd/MM/yyyy hh:mm:ss.SSS} %5level [%X{sourceThread}] [%X{akkaSource}] - "%msg"%n</pattern>
+			<pattern>%date{dd/MM/yyyy hh:mm:ss.SSS} %5level [%X{akkaSource}] "%msg"%n</pattern>
+			<!--pattern>%date{dd/MM/yyyy hh:mm:ss.SSS} %5level [%X{sourceThread}] [%X{akkaSource}] - "%msg"%n</pattern-->
 			<!--pattern>%X{akkaTimestamp}(%d{yyyy-MM-dd HH:mm:ss.SSS}) </pattern-->
 		</encoder>
 	</appender>
-	<root level="debug">
+	<logger name="org.mephi.griffin.actorcloud" level="debug" />
+	<root level="info">
 		<appender-ref ref="file" />
 	</root>
 </configuration>

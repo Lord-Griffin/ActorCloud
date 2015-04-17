@@ -1,0 +1,1 @@
+for /L %%i IN (1,1,10) DO copy /Y dist\ActorCloud.jar /B C:\Users\Griffin\Desktop\Test\%%i 

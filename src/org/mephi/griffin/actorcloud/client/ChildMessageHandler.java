@@ -15,6 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
+import org.mephi.griffin.actorcloud.client.messages.Message;
 import akka.actor.ActorRef;
 import java.util.logging.Level;
 import java.util.logging.Logger;

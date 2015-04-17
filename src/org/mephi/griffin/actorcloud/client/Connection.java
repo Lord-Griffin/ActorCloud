@@ -15,6 +15,11 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
+import org.mephi.griffin.actorcloud.client.messages.CloseSession;
+import org.mephi.griffin.actorcloud.client.messages.Message;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import org.apache.mina.core.session.IoSession;
 
 /**
@@ -24,15 +29,24 @@ import org.apache.mina.core.session.IoSession;
 public class Connection {
 	private IoSession session;
 	
-	protected Connection(IoSession session) {
+	Connection(IoSession session) {
 		this.session = session;
 	}
 	
-	public SendFuture send(Message message) {
-		return new SendFuture(session.write(message));
+	void setSession(IoSession session) {
+		this.session = session;
+	}
+	
+	public SendFuture send(Message message) throws IOException {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		ObjectOutputStream oos = new ObjectOutputStream(baos);
+		oos.writeObject(message);
+		return new SendFuture(session.write(baos.toByteArray()));
 	}
 	
 	public CloseFuture close(boolean immediately) {
+		session.setAttribute("gracefullyClosed");
+		session.write(new CloseSession());
 		return new CloseFuture(session.close(immediately));
 	}
 }

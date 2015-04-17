@@ -15,7 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.storage;
 
-import org.mephi.griffin.actorcloud.client.Message;
+import org.mephi.griffin.actorcloud.client.messages.Message;
 
 public class StorageResult implements Message {
 	public static final int GET = 1;

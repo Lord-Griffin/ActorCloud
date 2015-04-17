@@ -15,17 +15,19 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
+import org.mephi.griffin.actorcloud.client.messages.Message;
 import akka.actor.ActorRef;
+import java.io.Serializable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.storage.Storage;
 
-public abstract class MessageHandler {
+public abstract class MessageHandler implements Serializable {
 	private static final Logger logger = Logger.getLogger(MessageHandler.class.getName());
 	private String name;
-	private ClientActor actor;
-	private ActorRef storage;
-	private ActorRef manager;
+	private transient ClientActor actor;
+	private transient Storage storage;
+	private transient ActorRef manager;
 	
 	public MessageHandler() {
 		logger.entering("MessageHandler", "Constructor");
@@ -47,14 +49,13 @@ public abstract class MessageHandler {
 		logger.logp(Level.FINER, "MessageHandler", "setActors", "Client actor: " + actor + ", storage: " + storage + ", manager: " + manager);
 		this.name = "MessageHandler(" + actor.getSelf().path().name() + ")";
 		this.actor = actor;
-		this.storage = storage;
+		this.storage = new Storage(storage, actor.getSelf());
 		this.manager = manager;
 		logger.exiting(name, "setActors");
 	}
 	
 	public Storage getStorage() {
 		logger.entering(name, "getStorage");
-		Storage storage = new Storage(this.storage, actor.getSelf());
 		logger.exiting(name, "getStorage");
 		return storage;
 	}
@@ -93,5 +94,9 @@ public abstract class MessageHandler {
 	
 	public void sendChild(int num, Message message) {
 		actor.sendChild(num, message);
+	}
+	
+	public void saveSnapshot() {
+		actor.saveSnapshot();
 	}
 }

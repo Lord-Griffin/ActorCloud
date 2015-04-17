@@ -21,7 +21,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.mina.core.service.IoHandlerAdapter;
 import org.apache.mina.core.session.IoSession;
-import org.mephi.griffin.actorcloud.client.AuthRequest;
+import org.mephi.griffin.actorcloud.client.messages.AuthRequest;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
 
 /**
@@ -66,7 +66,7 @@ public class AuthServerHandler extends IoHandlerAdapter {
 		else {
 			AuthRequest ar = (AuthRequest) message;
 			logger.logp(Level.FINER, "AuthServerHandler session id " + session.getAttribute("ID"), "messageReceived", "Received authentication request {0}", message);
-			AuthData msg = new AuthData(ar.getLogin(), ar.getHash(), (int) session.getAttribute("ID"), session);
+			AuthData msg = new AuthData(ar.getLogin(), ar.getHash(), ar.getActor(), (int) session.getAttribute("ID"), session);
 			logger.logp(Level.FINER, "AuthServerHandler session id " + session.getAttribute("ID"), "messageReceived", "AuthData -> AuthServer: {0}", msg);
 			server.tell(msg, null);
 		}

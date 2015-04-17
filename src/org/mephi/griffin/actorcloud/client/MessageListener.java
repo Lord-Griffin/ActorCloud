@@ -15,6 +15,8 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
+import org.mephi.griffin.actorcloud.client.messages.Message;
+
 /**
  *
  * @author griffin

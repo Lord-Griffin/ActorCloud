@@ -23,17 +23,17 @@ import akka.actor.ActorRef;
  */
 public class SessionData {
 	
-	private String client;
+//	private String client;
 	private ActorRef actor;
 	
-	public SessionData(String client, ActorRef actor) {
-		this.client = client;
+	public SessionData(/*String client,*/ ActorRef actor) {
+//		this.client = client;
 		this.actor = actor;
 	}
 	
-	public String getClient() {
-		return client;
-	}
+//	public String getClient() {
+//		return client;
+//	}
 	
 	public ActorRef getActor() {
 		return actor;
@@ -41,6 +41,6 @@ public class SessionData {
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", actor " + actor;
+		return /*"Client " + client + ", actor " + */actor.toString();
 	}
 }

@@ -15,11 +15,12 @@
  */
 package org.mephi.griffin.actorcloud.netserver;
 
-import org.mephi.griffin.actorcloud.enqueuer.DisconnectSession;
-import org.mephi.griffin.actorcloud.enqueuer.AllowAddress;
+import org.mephi.griffin.actorcloud.enqueuer.messages.DisconnectSession;
+import org.mephi.griffin.actorcloud.enqueuer.messages.AllowAddress;
 import akka.actor.ActorRef;
 import akka.actor.Cancellable;
 import akka.actor.UntypedActor;
+import com.typesafe.config.Config;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -55,14 +56,14 @@ import org.apache.mina.filter.firewall.BlacklistFilter;
 import org.apache.mina.filter.ssl.SslFilter;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
-import org.mephi.griffin.actorcloud.client.ErrorMessage;
+import org.mephi.griffin.actorcloud.client.messages.ErrorMessage;
 import org.mephi.griffin.actorcloud.common.AddSession;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
-import org.mephi.griffin.actorcloud.actormanager.ActorRefMessage;
+import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
 import scala.concurrent.duration.Duration;
 
 /**
@@ -73,7 +74,7 @@ public class NetServer extends UntypedActor {
 	
 	private static final Logger logger = Logger.getLogger(NetServer.class.getName());
 	private ActorRef enqueuer;
-	private final ActorRef manager;
+	private final ActorRef nodeManager;
 	private final ClassLoader cl;
 	private List<InetSocketAddress> addresses;
 	private SocketAcceptor acceptor;
@@ -84,17 +85,12 @@ public class NetServer extends UntypedActor {
 	private final Map<InetAddress, Integer> fails;
 	private Cancellable schedule = null;
 	
-	public NetServer(List<InetSocketAddress> addresses, ClassLoader cl) throws UnknownHostException {
+	public NetServer(ClassLoader cl, ActorRef nodeManager) throws UnknownHostException {
 		logger.entering("NetServer", "Constructor", new Object[]{addresses, cl});
-		String log = "Addresses: ";
-		for(int i = 0; i < addresses.size() - 1; i++) log += addresses.get(i) + ", ";
-		log += addresses.get(addresses.size() - 1);
-		logger.logp(Level.FINER, "NetServer", "Constructor", log);
-		this.addresses = addresses;
 		sessions = new HashMap<>();
 		bannedAddresses = new HashMap<>();
 		fails = new HashMap<>();
-		manager = getContext().parent();
+		this.nodeManager = nodeManager;
 		this.cl = cl;
 		logger.exiting("NetServer", "Constructor");
 	}
@@ -104,26 +100,38 @@ public class NetServer extends UntypedActor {
 		logger.entering("NetServer", "preStart");
 		logger.logp(Level.FINE, "NetServer", "preStart", "Network server starts");
 		try {
-			KeyStore keyStore = KeyStore.getInstance("jks");
-			keyStore.load(new FileInputStream("D:\\server.jks"), "abcdef".toCharArray());
-			KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
-			kmf.init(keyStore, "abcdef".toCharArray());
-			KeyStore trustStore = KeyStore.getInstance("jks");
-			trustStore.load(new FileInputStream("D:\\ca.jks"), "abcdef".toCharArray());
-			TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
-			tmf.init(trustStore);
-			SSLContext sslContext = SSLContext.getInstance("SSL");
-			sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+			Config config = getContext().system().settings().config();
+			List<String> ips = config.getStringList("actorcloud.net.ips");
+			int port = config.getInt("actorcloud.net.port");
+			addresses = new ArrayList<>();
+			for(String ip : ips) addresses.add(new InetSocketAddress(ip, port));
 			acceptor = new NioSocketAcceptor();
 			DefaultIoFilterChainBuilder chain = acceptor.getFilterChain();
 			blacklist = new BlacklistFilter();
 			chain.addLast("blackList", blacklist);
 			whitelist = new WhitelistFilter();
 			chain.addLast("whitelist", whitelist);
-			SslFilter sslFilter = new SslFilter(sslContext);
-			sslFilter.setNeedClientAuth(true);
-			sslFilter.setUseClientMode(false);
-			chain.addLast("sslFilter", sslFilter);
+			if(config.getBoolean("actorcloud.net.ssl")) {
+				String keyStoreFile = config.getString("actorcloud.net.keystore.file");
+				String keyStorePass = config.getString("actorcloud.net.keystore.pass");
+				String privateKeyPass = config.getString("actorcloud.net.keystore.pkpass");
+				String trustStoreFile = config.getString("actorcloud.net.truststore.file");
+				String trustStorePass = config.getString("actorcloud.net.truststore.pass");
+				KeyStore keyStore = KeyStore.getInstance("jks");
+				keyStore.load(new FileInputStream(keyStoreFile), keyStorePass.toCharArray());
+				KeyManagerFactory kmf = KeyManagerFactory.getInstance("PKIX");
+				kmf.init(keyStore, privateKeyPass.toCharArray());
+				KeyStore trustStore = KeyStore.getInstance("jks");
+				trustStore.load(new FileInputStream(trustStoreFile), trustStorePass.toCharArray());
+				TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
+				tmf.init(trustStore);
+				SSLContext sslContext = SSLContext.getInstance("SSL");
+				sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+				SslFilter sslFilter = new SslFilter(sslContext);
+				sslFilter.setNeedClientAuth(true);
+				sslFilter.setUseClientMode(false);
+				chain.addLast("sslFilter", sslFilter);
+			}
 			chain.addLast("serializationFilter", new ProtocolCodecFilter(new ObjectSerializationCodecFactory(cl)));
 			acceptor.setHandler(new NetServerHandler(getSelf()));
 			acceptor.bind(addresses);
@@ -158,15 +166,15 @@ public class NetServer extends UntypedActor {
 			logger.logp(Level.INFO, "NetServer", "preStart", log);
 			RegisterServer message = new RegisterServer(RegisterServer.NET, info);
 			logger.logp(Level.FINER, "NetServer", "preStart", "RegisterServer -> Manager: {0}", message);
-			manager.tell(message, getSelf());
+			nodeManager.tell(message, getSelf());
 			logger.logp(Level.INFO, "NetServer", "preStart", "Network server is started");
 		}
 		catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | KeyManagementException ex) {
 			logger.logp(Level.SEVERE, "NetServer", "preStart", "Failed to start network server");
 			logger.throwing("NetServer", "preStart", ex);
-			InitFail message = new InitFail(InitFail.NET, "", "");
+			InitFail message = new InitFail(InitFail.NET, "", null, 0, "");
 			logger.logp(Level.FINER, "NetServer", "preStart", "InitFail -> Manager: {0}", message);
-			manager.tell(message , getSelf());
+			nodeManager.tell(message , getSelf());
 			getContext().stop(getSelf());
 		}
 		logger.exiting("NetServer", "preStart");
@@ -207,7 +215,7 @@ public class NetServer extends UntypedActor {
 					logger.logp(Level.FINE, "NetServer", "onReceive", "Enqueuer unavailable");
 					UnregisterServer msg = new UnregisterServer(UnregisterServer.NET);
 					logger.logp(Level.FINER, "NetServer", "onReceive", "UnregisterServer -> Manager: " + msg);
-					manager.tell(msg, getSelf());
+					nodeManager.tell(msg, getSelf());
 					getContext().stop(getSelf());
 				}
 			}
@@ -271,6 +279,41 @@ public class NetServer extends UntypedActor {
 			logger.logp(Level.FINER, "NetServer", "onReceive", "SessionDisconnected -> Enqueuer: " + msg);
 			enqueuer.tell(msg, getSelf());
 		}
+//		else if(message instanceof ByteMessage) {
+//			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- SessionMessage: " + message);
+//			ByteMessage bm = (ByteMessage) message;
+//			if(!bm.isInbound()) {
+//				ByteArrayInputStream bais = new ByteArrayInputStream(bm.getMessage());
+//				try {
+//					MyObjectInputStream ois = new MyObjectInputStream(bais, cl);
+//					Object obj = ois.readObject();
+//					if(obj instanceof Message) {
+//						Message msg = (Message) obj;
+//						String log = "Message: " + msg.getClass().getName() + "\n";
+//						for(Field field : msg.getClass().getDeclaredFields()) {
+//							try {
+//								field.setAccessible(true);
+//								Class type = field.getType();
+//								Object value = field.get(msg);
+//								log += type.getName() + " " + field.getName() + " = " + value + "\n";
+//							}
+//							catch(IllegalAccessException iae) {}
+//						}
+//						logger.logp(Level.FINEST, "NetServer", "onReceive", log);
+//						if(sessions.get(bm.getSessionId()) != null) {
+//							logger.logp(Level.FINER, "NetServer", "onReceive", "Message sent to client session with id " + bm.getSessionId());
+//							sessions.get(bm.getSessionId()).write(msg);
+//						}
+//						else {
+//							logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + bm.getSessionId());
+//						}
+//					}
+//				}
+//				catch(IOException | ClassNotFoundException ex) {
+//					logger.throwing("NetServer", "onReceive", ex);
+//				}
+//			}
+//		}
 		else if(message instanceof SessionMessage) {
 			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- SessionMessage: " + message);
 			SessionMessage sm = (SessionMessage) message;
@@ -301,14 +344,12 @@ public class NetServer extends UntypedActor {
 					catch(IllegalAccessException iae) {}
 				}
 				logger.logp(Level.FINEST, "NetServer", "onReceive", log);
-				for(int sessionId : sm.getSessionIds()) {
-					if(sessions.get(sessionId) != null) {
-						logger.logp(Level.FINER, "NetServer", "onReceive", "Message sent to client session with id " + sessionId);
-						sessions.get(sessionId).write(sm.getMessage());
-					}
-					else {
-						logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + sessionId);
-					}
+				if(sessions.get(sm.getSessionId()) != null) {
+					logger.logp(Level.FINER, "NetServer", "onReceive", "Message sent to client session with id " + sm.getSessionId());
+					sessions.get(sm.getSessionId()).write(sm.getMessage());
+				}
+				else {
+					logger.logp(Level.WARNING, "NetServer", "onReceive", "No client session with id " + sm.getSessionId());
 				}
 			}
 		}

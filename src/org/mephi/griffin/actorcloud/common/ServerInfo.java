@@ -16,6 +16,7 @@
 package org.mephi.griffin.actorcloud.common;
 
 import akka.actor.ActorRef;
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.util.List;
 
@@ -23,9 +24,9 @@ import java.util.List;
  *
  * @author Griffin
  */
-public class ServerInfo {
-	ActorRef reference;
-	List<InetSocketAddress> addresses;
+public class ServerInfo implements Serializable {
+	private final ActorRef reference;
+	private final List<InetSocketAddress> addresses;
 	
 	public ServerInfo(ActorRef reference, List<InetSocketAddress> addresses) {
 		this.reference = reference;
@@ -38,6 +39,14 @@ public class ServerInfo {
 	
 	public List<InetSocketAddress> getAddresses() {
 		return addresses;
+	}
+	
+	public String getDump() {
+		String dump = "";
+		dump += "        " + reference + "\n";
+		for(InetSocketAddress isa : addresses)
+			dump += "        " + isa + "\n";
+		return dump;
 	}
 	
 	@Override

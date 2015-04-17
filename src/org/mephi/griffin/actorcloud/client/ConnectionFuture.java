@@ -15,6 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.client;
 
+import org.mephi.griffin.actorcloud.client.messages.ErrorMessage;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -204,6 +205,8 @@ class ConnectionFuture implements Future<Connection> {
 					if(future instanceof ConnectFuture && !future.isDone()) ((ConnectFuture) future).cancel();
 				}
 				connection = new Connection(session);
+				if(session.getAttribute("connection") == null)
+					session.setAttribute("connection", connection);
 				done = true;
 				if(waiters > 0) lock.notifyAll();
 			}

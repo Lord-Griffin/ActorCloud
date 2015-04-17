@@ -15,7 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.admin;
 
-import org.mephi.griffin.actorcloud.client.Message;
+import org.mephi.griffin.actorcloud.client.messages.Message;
 
 /**
  *

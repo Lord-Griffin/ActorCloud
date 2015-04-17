@@ -15,9 +15,10 @@
  */
 package org.mephi.griffin.actorcloud.common;
 
+import java.io.Serializable;
 import org.apache.mina.core.session.IoSession;
 
-public class AddSession {
+public class AddSession implements Serializable {
 	private int sessionId;
 	private IoSession session;
 	

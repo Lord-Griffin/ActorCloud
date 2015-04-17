@@ -15,11 +15,13 @@
  */
 package org.mephi.griffin.actorcloud.common;
 
+import java.io.Serializable;
+
 /**
  *
  * @author Griffin
  */
-public class RemoveSession {
+public class RemoveSession implements Serializable {
 	private int sessionId;
 	
 	public RemoveSession() {}

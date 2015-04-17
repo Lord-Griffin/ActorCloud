@@ -15,19 +15,22 @@
  */
 package org.mephi.griffin.actorcloud.storage;
 
+import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCursor;
 import com.mongodb.MongoClient;
+import com.mongodb.MongoCredential;
 import com.mongodb.MongoException;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteResult;
-import java.net.InetSocketAddress;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException.Missing;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.common.InitFail;
@@ -35,20 +38,14 @@ import org.mephi.griffin.actorcloud.common.InitSuccess;
 
 public class StorageActor extends UntypedActor {
 	private static final Logger logger = Logger.getLogger(StorageActor.class.getName());
-	private List<InetSocketAddress> addresses;
+	private ActorRef nodeManager;
 	private MongoClient client;
 	private DB db;
 	
-	public StorageActor(List<InetSocketAddress> addresses) {
+	public StorageActor(ActorRef nodeManager) {
 		logger.entering("StorageActor", "Constructor");
-		String log = "DB addresses: localhost:27017";
-		if(addresses != null) {
-			for(InetSocketAddress address : addresses)
-				log += ", " + address.getAddress().getHostAddress() + ":" + address.getPort();
-		}
-		logger.logp(Level.FINER, "StorageActor", "Constructor", log);
+		this.nodeManager = nodeManager;
 		client = null;
-		this.addresses = addresses;
 		logger.exiting("StorageActor", "Constructor");
 	}
 
@@ -56,38 +53,44 @@ public class StorageActor extends UntypedActor {
 	public void preStart() {
 		logger.entering("StorageActor", "preStart");
 		String errors = "";
+		Config config = getContext().system().settings().config();
 		try {
-			client = new MongoClient();
+			String host;
+			int port;
+			String login = null;
+			String pass = null;
+			try {host = config.getString("actorcloud.storage.host");}
+			catch(Missing ex) {host = "localhost";}
+			try {port = config.getInt("actorcloud.storage.port");}
+			catch(Missing ex) {port = 27017;}
+			try {
+				login = config.getString("actorcloud.storage.login");
+				pass = config.getString("actorcloud.storage.pass");
+			}
+			catch(Missing ex) {
+				if(login != null) throw ex;
+				login = "";
+				pass = "";
+			}
+			if(!login.equals("")) client = new MongoClient(new ServerAddress(host, port), Arrays.asList(MongoCredential.createPlainCredential(login, "actorcloud", pass.toCharArray())));
+			else client = new MongoClient(new ServerAddress(host, port));
 			logger.logp(Level.FINER, "StorageActor", "preStart", "Connected to localhost:27017");
 		}
 		catch (MongoException | UnknownHostException e) {
 			logger.throwing("StorageActor", "preStart", e);
 			errors += e.getMessage() + "\n";
 		}
-		if(addresses != null) {
-			for(InetSocketAddress address : addresses) {
-				try {
-					client = new MongoClient(new ServerAddress(address));
-					logger.logp(Level.FINER, "StorageActor", "preStart", "Connected to " + address.getAddress().getHostAddress() + ":" + address.getPort());
-					break;
-				}
-				catch (MongoException e) {
-					logger.throwing("StorageActor", "preStart", e);
-					errors += e.getMessage() + "\n";
-				}
-			}
-		}
 		if(client != null) {
 			db = client.getDB("actorcloud");
-			InitSuccess msg = new InitSuccess(InitSuccess.STORAGE, null);
+			InitSuccess msg = new InitSuccess(InitSuccess.STORAGE, null, null, 0);
 			logger.logp(Level.FINER, "StorageActor", "preStart", "InitSuccess -> Manager: " + msg);
-			getContext().parent().tell(msg, getSelf());
+			nodeManager.tell(msg, getSelf());
 			logger.logp(Level.INFO, "StorageActor", "preStart", "Storage started");
 		}
 		else {
-			InitFail msg = new InitFail(InitFail.STORAGE, null, errors);
+			InitFail msg = new InitFail(InitFail.STORAGE, null, null, 0, errors);
 			logger.logp(Level.FINER, "StorageActor", "preStart", "InitFail -> Manager: " + msg);
-			getContext().parent().tell(msg, getSelf());
+			nodeManager.tell(msg, getSelf());
 			logger.logp(Level.WARNING, "StorageActor", "preStart", "Failed to connect to DB:\n" + errors);
 			getContext().stop(getSelf());
 		}

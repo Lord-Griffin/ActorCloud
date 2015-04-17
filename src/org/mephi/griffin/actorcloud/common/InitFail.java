@@ -15,11 +15,14 @@
  */
 package org.mephi.griffin.actorcloud.common;
 
+import akka.actor.ActorRef;
+import java.io.Serializable;
+
 /**
  *
  * @author Griffin
  */
-public class InitFail {
+public class InitFail implements Serializable {
 	public static final int AUTH = 1;
 	public static final int NET = 2;
 	public static final int STORAGE = 3;
@@ -28,13 +31,15 @@ public class InitFail {
 	
 	private int type;
 	private String name;
+	private ActorRef authServer;
+	private int authSessionId;
 	private String error;
 	
-	public InitFail() {}
-	
-	public InitFail(int type, String name, String error) {
+	public InitFail(int type, String name, ActorRef authServer, int authSessionId, String error) {
 		this.type = type;
 		this.name = name;
+		this.authServer = authServer;
+		this.authSessionId = authSessionId;
 		this.error = error;
 	}
 	
@@ -44,6 +49,14 @@ public class InitFail {
 	
 	public String getName() {
 		return name;
+	}
+	
+	public ActorRef getAuthServer() {
+		return authServer;
+	}
+	
+	public int getAuthSessionId() {
+		return authSessionId;
 	}
 	
 	public String getError() {

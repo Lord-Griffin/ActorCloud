@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.storage;
+package org.mephi.griffin.actorcloud.storage.messages;
 
 import org.mephi.griffin.actorcloud.client.messages.Message;
+import org.mephi.griffin.actorcloud.storage.Entity;
 
 public class StorageResult implements Message {
 	public static final int GET = 1;

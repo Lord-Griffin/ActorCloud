@@ -13,28 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.storage;
+package org.mephi.griffin.actorcloud.storage.messages;
 
 import com.mongodb.BasicDBObject;
 
-public class Insert {
+public class Update {
 	private int requestId;
 	private String collection;
-	private BasicDBObject[] docs;
+	private BasicDBObject query;
+	private BasicDBObject fields;
 	
-	public Insert() {}
+	public Update() {}
 	
-	public Insert(int requestId, String collection, BasicDBObject doc) {
+	public Update(int requestId, String collection, BasicDBObject query, BasicDBObject fields) {
 		this.requestId = requestId;
 		this.collection = collection;
-		docs = new BasicDBObject[1];
-		docs[0] = doc;
-	}
-	
-	public Insert(int requestId, String collection, BasicDBObject[] docs) {
-		this.requestId = requestId;
-		this.collection = collection;
-		this.docs = docs;
+		this.query = query;
+		this.fields = fields;
 	}
 	
 	public int getId() {
@@ -45,16 +40,20 @@ public class Insert {
 		return collection;
 	}
 	
-	public BasicDBObject[] getDocs() {
-		return docs;
+	public BasicDBObject getQuery() {
+		return query;
+	}
+	
+	public BasicDBObject getFields() {
+		return fields;
 	}
 	
 	@Override
 	public String toString() {
-		String res = "Request id " + requestId + ", collection " + collection + ", rows:\n";
-		for(BasicDBObject doc : docs) {
-			res += doc + "\n";
-		}
+		String res = "Request id " + requestId + ", collection " + collection + ", query: ";
+		if(query != null) res += query;
+		else res += "all rows";
+		res += ", fields: " + fields;
 		return res;
 	}
 }

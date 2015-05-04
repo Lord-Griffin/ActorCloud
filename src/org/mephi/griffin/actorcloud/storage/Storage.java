@@ -15,6 +15,10 @@
  */
 package org.mephi.griffin.actorcloud.storage;
 
+import org.mephi.griffin.actorcloud.storage.messages.Update;
+import org.mephi.griffin.actorcloud.storage.messages.Remove;
+import org.mephi.griffin.actorcloud.storage.messages.Insert;
+import org.mephi.griffin.actorcloud.storage.messages.Get;
 import akka.actor.ActorRef;
 import com.mongodb.BasicDBObject;
 import java.util.logging.Level;

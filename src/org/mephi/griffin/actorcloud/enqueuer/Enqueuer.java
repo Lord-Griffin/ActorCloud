@@ -28,12 +28,12 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
 import org.mephi.griffin.actorcloud.actormanager.messages.ActorHandedOff;
 import org.mephi.griffin.actorcloud.actormanager.messages.ActorRecovered;
+import org.mephi.griffin.actorcloud.actormanager.messages.AllowConnection;
 import org.mephi.griffin.actorcloud.client.messages.TokenMessage;
 import org.mephi.griffin.actorcloud.client.messages.TokenResponse;
-import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
-import org.mephi.griffin.actorcloud.actormanager.messages.AllowConnection;
 import org.mephi.griffin.actorcloud.enqueuer.messages.AllowAddress;
 import org.mephi.griffin.actorcloud.enqueuer.messages.AllowConfirmation;
 import org.mephi.griffin.actorcloud.enqueuer.messages.CleanTokens;
@@ -41,8 +41,8 @@ import org.mephi.griffin.actorcloud.enqueuer.messages.ClientConnected;
 import org.mephi.griffin.actorcloud.enqueuer.messages.ClientDisconnected;
 import org.mephi.griffin.actorcloud.enqueuer.messages.DisconnectSession;
 import org.mephi.griffin.actorcloud.enqueuer.messages.LastMessage;
-import org.mephi.griffin.actorcloud.netserver.SessionDisconnected;
-import org.mephi.griffin.actorcloud.netserver.SessionMessage;
+import org.mephi.griffin.actorcloud.netserver.messages.SessionDisconnected;
+import org.mephi.griffin.actorcloud.netserver.messages.SessionMessage;
 import scala.concurrent.duration.Duration;
 
 /**

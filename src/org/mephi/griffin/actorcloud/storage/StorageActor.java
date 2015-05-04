@@ -35,6 +35,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
+import org.mephi.griffin.actorcloud.storage.messages.Get;
+import org.mephi.griffin.actorcloud.storage.messages.Insert;
+import org.mephi.griffin.actorcloud.storage.messages.Remove;
+import org.mephi.griffin.actorcloud.storage.messages.StorageResult;
+import org.mephi.griffin.actorcloud.storage.messages.Update;
 
 public class StorageActor extends UntypedActor {
 	private static final Logger logger = Logger.getLogger(StorageActor.class.getName());

@@ -13,21 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.storage;
+package org.mephi.griffin.actorcloud.storage.messages;
 
 import com.mongodb.BasicDBObject;
 
-public class Remove {
+public class Insert {
 	private int requestId;
 	private String collection;
-	private BasicDBObject query;
+	private BasicDBObject[] docs;
 	
-	public Remove() {}
+	public Insert() {}
 	
-	public Remove(int requestId, String collection, BasicDBObject query) {
+	public Insert(int requestId, String collection, BasicDBObject doc) {
 		this.requestId = requestId;
 		this.collection = collection;
-		this.query = query;
+		docs = new BasicDBObject[1];
+		docs[0] = doc;
+	}
+	
+	public Insert(int requestId, String collection, BasicDBObject[] docs) {
+		this.requestId = requestId;
+		this.collection = collection;
+		this.docs = docs;
 	}
 	
 	public int getId() {
@@ -38,15 +45,16 @@ public class Remove {
 		return collection;
 	}
 	
-	public BasicDBObject getQuery() {
-		return query;
+	public BasicDBObject[] getDocs() {
+		return docs;
 	}
 	
 	@Override
 	public String toString() {
-		String res = "Request id " + requestId + ", collection " + collection + ", query: ";
-		if(query != null) res += query;
-		else res += "all rows";
+		String res = "Request id " + requestId + ", collection " + collection + ", rows:\n";
+		for(BasicDBObject doc : docs) {
+			res += doc + "\n";
+		}
 		return res;
 	}
 }

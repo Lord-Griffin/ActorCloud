@@ -15,6 +15,7 @@
  */
 package org.mephi.griffin.actorcloud.netserver;
 
+import org.mephi.griffin.actorcloud.netserver.messages.SessionMessage;
 import akka.actor.ActorRef;
 import java.net.InetSocketAddress;
 import java.util.logging.Level;

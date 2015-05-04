@@ -20,11 +20,11 @@ import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import org.mephi.griffin.actorcloud.enqueuer.messages.ClientConnected;
 import org.mephi.griffin.actorcloud.enqueuer.messages.ClientDisconnected;
-import org.mephi.griffin.actorcloud.netserver.SessionMessage;
+import org.mephi.griffin.actorcloud.netserver.messages.SessionMessage;
 import org.mephi.griffin.actorcloud.storage.Entity;
 import org.mephi.griffin.actorcloud.storage.SimpleQuery;
 import org.mephi.griffin.actorcloud.storage.Storage;
-import org.mephi.griffin.actorcloud.storage.StorageResult;
+import org.mephi.griffin.actorcloud.storage.messages.StorageResult;
 
 /**
  *

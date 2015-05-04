@@ -63,7 +63,7 @@ import org.mephi.griffin.actorcloud.enqueuer.messages.ClientConnected;
 import org.mephi.griffin.actorcloud.enqueuer.messages.ClientDisconnected;
 import org.mephi.griffin.actorcloud.enqueuer.messages.DisconnectSession;
 import org.mephi.griffin.actorcloud.enqueuer.messages.LastMessage;
-import org.mephi.griffin.actorcloud.netserver.SessionMessage;
+import org.mephi.griffin.actorcloud.netserver.messages.SessionMessage;
 import org.mephi.griffin.actorcloud.util.MyObjectInputStream;
 import scala.concurrent.duration.Duration;
 

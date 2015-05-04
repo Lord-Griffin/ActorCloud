@@ -13,23 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.storage;
+package org.mephi.griffin.actorcloud.storage.messages;
 
 import com.mongodb.BasicDBObject;
 
-public class Update {
+public class Remove {
 	private int requestId;
 	private String collection;
 	private BasicDBObject query;
-	private BasicDBObject fields;
 	
-	public Update() {}
+	public Remove() {}
 	
-	public Update(int requestId, String collection, BasicDBObject query, BasicDBObject fields) {
+	public Remove(int requestId, String collection, BasicDBObject query) {
 		this.requestId = requestId;
 		this.collection = collection;
 		this.query = query;
-		this.fields = fields;
 	}
 	
 	public int getId() {
@@ -44,16 +42,11 @@ public class Update {
 		return query;
 	}
 	
-	public BasicDBObject getFields() {
-		return fields;
-	}
-	
 	@Override
 	public String toString() {
 		String res = "Request id " + requestId + ", collection " + collection + ", query: ";
 		if(query != null) res += query;
 		else res += "all rows";
-		res += ", fields: " + fields;
 		return res;
 	}
 }

@@ -15,7 +15,6 @@
  */
 package org.mephi.griffin.actorcloud.actormanager;
 
-import org.mephi.griffin.actorcloud.common.ActorData;
 import akka.actor.ActorRef;
 import akka.actor.Address;
 import akka.actor.UntypedActor;
@@ -24,11 +23,9 @@ import akka.cluster.ClusterEvent.MemberRemoved;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.actormanager.messages.ActorHandedOff;
@@ -37,6 +34,7 @@ import org.mephi.griffin.actorcloud.actormanager.messages.ActorStopped;
 import org.mephi.griffin.actorcloud.actormanager.messages.AllowConnection;
 import org.mephi.griffin.actorcloud.actormanager.messages.AllowShutdown;
 import org.mephi.griffin.actorcloud.actormanager.messages.AuthConfirmation;
+import org.mephi.griffin.actorcloud.actormanager.messages.AuthDecline;
 import org.mephi.griffin.actorcloud.actormanager.messages.CreateActorManager;
 import org.mephi.griffin.actorcloud.actormanager.messages.CreateClientActor;
 import org.mephi.griffin.actorcloud.actormanager.messages.GetNodes;
@@ -44,12 +42,12 @@ import org.mephi.griffin.actorcloud.actormanager.messages.Handoff;
 import org.mephi.griffin.actorcloud.actormanager.messages.RecoverClientActor;
 import org.mephi.griffin.actorcloud.actormanager.messages.SyncData;
 import org.mephi.griffin.actorcloud.actormanager.messages.SyncTime;
-import org.mephi.griffin.actorcloud.authentication.AuthDecline;
-import org.mephi.griffin.actorcloud.authentication.ClientAuthenticated;
+import org.mephi.griffin.actorcloud.authentication.messages.ClientAuthenticated;
 import org.mephi.griffin.actorcloud.client.messages.HandoffFail;
 import org.mephi.griffin.actorcloud.client.messages.HandoffSuccess;
 import org.mephi.griffin.actorcloud.client.messages.RecoveryFail;
 import org.mephi.griffin.actorcloud.client.messages.RecoverySuccess;
+import org.mephi.griffin.actorcloud.common.ActorData;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
 import org.mephi.griffin.actorcloud.enqueuer.messages.AllowConfirmation;
@@ -57,6 +55,7 @@ import org.mephi.griffin.actorcloud.enqueuer.messages.ClientDisconnected;
 import org.mephi.griffin.actorcloud.nodemanager.messages.NodeOverloaded;
 import org.mephi.griffin.actorcloud.nodemanager.messages.Nodes;
 import org.mephi.griffin.actorcloud.nodemanager.messages.RequestShutdown;
+
 
 /**
  *

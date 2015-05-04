@@ -31,7 +31,7 @@ import org.mephi.griffin.actorcloud.storage.CompoundQuery;
 import org.mephi.griffin.actorcloud.storage.Entity;
 import org.mephi.griffin.actorcloud.storage.SimpleQuery;
 import org.mephi.griffin.actorcloud.storage.Storage;
-import org.mephi.griffin.actorcloud.storage.StorageResult;
+import org.mephi.griffin.actorcloud.storage.messages.StorageResult;
 
 /**
  *

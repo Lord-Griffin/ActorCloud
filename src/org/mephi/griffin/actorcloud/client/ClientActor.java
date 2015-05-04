@@ -45,8 +45,8 @@ import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
 import org.mephi.griffin.actorcloud.enqueuer.messages.ClientConnected;
 import org.mephi.griffin.actorcloud.enqueuer.messages.ClientDisconnected;
-import org.mephi.griffin.actorcloud.netserver.SessionMessage;
-import org.mephi.griffin.actorcloud.storage.StorageResult;
+import org.mephi.griffin.actorcloud.netserver.messages.SessionMessage;
+import org.mephi.griffin.actorcloud.storage.messages.StorageResult;
 import org.mephi.griffin.actorcloud.util.MyObjectInputStream;
 
 /**

@@ -15,7 +15,6 @@
  */
 package org.mephi.griffin.actorcloud.authentication;
 
-import org.mephi.griffin.actorcloud.actormanager.messages.AuthConfirmation;
 import akka.actor.ActorRef;
 import akka.actor.UntypedActor;
 import com.typesafe.config.Config;
@@ -53,6 +52,11 @@ import org.apache.mina.filter.codec.serialization.ObjectSerializationCodecFactor
 import org.apache.mina.filter.ssl.SslFilter;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
+import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
+import org.mephi.griffin.actorcloud.actormanager.messages.AuthDecline;
+import org.mephi.griffin.actorcloud.actormanager.messages.AuthConfirmation;
+import org.mephi.griffin.actorcloud.authentication.messages.ClientAuthenticated;
+import org.mephi.griffin.actorcloud.authentication.messages.GetManagerNode;
 import org.mephi.griffin.actorcloud.client.messages.AuthResponse;
 import org.mephi.griffin.actorcloud.client.messages.ErrorMessage;
 import org.mephi.griffin.actorcloud.common.InitFail;
@@ -60,12 +64,11 @@ import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.RemoveSession;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
-import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
 import org.mephi.griffin.actorcloud.nodemanager.messages.ManagerNode;
 import org.mephi.griffin.actorcloud.storage.Entity;
 import org.mephi.griffin.actorcloud.storage.SimpleQuery;
 import org.mephi.griffin.actorcloud.storage.Storage;
-import org.mephi.griffin.actorcloud.storage.StorageResult;
+import org.mephi.griffin.actorcloud.storage.messages.StorageResult;
 
 /**
  *

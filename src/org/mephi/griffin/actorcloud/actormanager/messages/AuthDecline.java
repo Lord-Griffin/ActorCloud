@@ -13,44 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.netserver;
-
-import java.io.Serializable;
+package org.mephi.griffin.actorcloud.actormanager.messages;
 
 /**
  *
  * @author Griffin
  */
-public class SessionMessage implements Serializable {
+public class AuthDecline {
 	
 	private int sessionId;
-	private boolean inbound;
-	private Object message;
+	private String reason;
 	
-	public SessionMessage(int sessionId, boolean inbound, Object message) {
+	public AuthDecline() {}
+	
+	public AuthDecline(int sessionId, String reason) {
 		this.sessionId = sessionId;
-		this.inbound = inbound;
-		this.message = message;
-	}
-	
-	public boolean isInbound() {
-		return inbound;
+		this.reason = reason;
 	}
 	
 	public int getSessionId() {
 		return sessionId;
 	}
 	
-	public Object getMessage() {
-		return message;
-	}
-	
-	@Override
-	public String toString() {
-		String res = "Message ";
-		if(isInbound()) res += "from session with id " + sessionId;
-		else res += "to session with id " + sessionId;
-		res += ": " + message.getClass().getName();
-		return res;
+	public String getReason() {
+		return reason;
 	}
 }

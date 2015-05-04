@@ -55,8 +55,8 @@ import org.apache.mina.filter.ssl.SslFilter;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
-import org.mephi.griffin.actorcloud.enqueuer.messages.AllowAddress;
-import org.mephi.griffin.actorcloud.enqueuer.messages.DisconnectSession;
+import org.mephi.griffin.actorcloud.dispatcher.messages.AllowAddress;
+import org.mephi.griffin.actorcloud.dispatcher.messages.DisconnectSession;
 import org.mephi.griffin.actorcloud.client.messages.ErrorMessage;
 import org.mephi.griffin.actorcloud.common.AddSession;
 import org.mephi.griffin.actorcloud.common.InitFail;
@@ -76,7 +76,7 @@ import scala.concurrent.duration.Duration;
 public class NetServer extends UntypedActor {
 	
 	private static final Logger logger = Logger.getLogger(NetServer.class.getName());
-	private ActorRef enqueuer;
+	private ActorRef dispatcher;
 	private final ActorRef nodeManager;
 	private final ClassLoader cl;
 	private List<InetSocketAddress> addresses;
@@ -210,12 +210,12 @@ public class NetServer extends UntypedActor {
 		if(message instanceof ActorRefMessage) {
 			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- ActorRefMessage: " + message);
 			ActorRefMessage arm = (ActorRefMessage) message;
-			if(arm.getType() == ActorRefMessage.ENQUEUER) {
+			if(arm.getType() == ActorRefMessage.DISPATCHER) {
 				if(arm.getRef() != null) {
-					enqueuer = arm.getRef();
+					dispatcher = arm.getRef();
 				}
 				else {
-					logger.logp(Level.FINE, "NetServer", "onReceive", "Enqueuer unavailable");
+					logger.logp(Level.FINE, "NetServer", "onReceive", "Dispatcher unavailable");
 					UnregisterServer msg = new UnregisterServer(UnregisterServer.NET);
 					logger.logp(Level.FINER, "NetServer", "onReceive", "UnregisterServer -> Manager: " + msg);
 					nodeManager.tell(msg, getSelf());
@@ -279,8 +279,8 @@ public class NetServer extends UntypedActor {
 			logger.logp(Level.FINER, "NetServer", "onReceive", "Removed session with id " + rd.getSessionId() + " from session list");
 			sessions.remove(rd.getSessionId());
 			SessionDisconnected msg = new SessionDisconnected(rd.getSessionId());
-			logger.logp(Level.FINER, "NetServer", "onReceive", "SessionDisconnected -> Enqueuer: " + msg);
-			enqueuer.tell(msg, getSelf());
+			logger.logp(Level.FINER, "NetServer", "onReceive", "SessionDisconnected -> Dispatcher: " + msg);
+			dispatcher.tell(msg, getSelf());
 		}
 //		else if(message instanceof ByteMessage) {
 //			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- SessionMessage: " + message);
@@ -321,7 +321,7 @@ public class NetServer extends UntypedActor {
 			logger.logp(Level.FINER, "NetServer", "onReceive", "NetServer <- SessionMessage: " + message);
 			SessionMessage sm = (SessionMessage) message;
 			if(sm.isInbound()) {
-				logger.logp(Level.FINER, "NetServer", "onReceive", "SessionMessage -> Enqueuer: " + message);
+				logger.logp(Level.FINER, "NetServer", "onReceive", "SessionMessage -> Dispatcher: " + message);
 				String log = "Message: " + message.getClass().getName() + "\n";
 				for(Field field : message.getClass().getDeclaredFields()) {
 					try {
@@ -333,7 +333,7 @@ public class NetServer extends UntypedActor {
 					catch(IllegalAccessException iae) {}
 				}
 				logger.logp(Level.FINEST, "NetServer", "onReceive", log);
-				enqueuer.tell(message, getSelf());
+				dispatcher.tell(message, getSelf());
 			}
 			else {
 				String log = "Message: " + sm.getMessage().getClass().getName() + "\n";
@@ -363,7 +363,7 @@ public class NetServer extends UntypedActor {
 			List<InetAddress> expiredAddresses = new ArrayList<>();
 			for(Entry<InetAddress, Long> entry : bannedAddresses.entrySet()) {
 				if(entry.getValue() == null) {
-					logger.logp(Level.SEVERE, "Enqueuer", "onReceive", "Expiration time for address " + entry.getKey() + " not found");
+					logger.logp(Level.SEVERE, "Dispatcher", "onReceive", "Expiration time for address " + entry.getKey() + " not found");
 					expiredAddresses.add(entry.getKey());
 				}
 				else if(entry.getValue() < now) {

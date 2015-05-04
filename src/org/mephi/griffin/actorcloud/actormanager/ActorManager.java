@@ -50,8 +50,8 @@ import org.mephi.griffin.actorcloud.client.messages.RecoverySuccess;
 import org.mephi.griffin.actorcloud.common.ActorData;
 import org.mephi.griffin.actorcloud.common.InitFail;
 import org.mephi.griffin.actorcloud.common.InitSuccess;
-import org.mephi.griffin.actorcloud.enqueuer.messages.AllowConfirmation;
-import org.mephi.griffin.actorcloud.enqueuer.messages.ClientDisconnected;
+import org.mephi.griffin.actorcloud.dispatcher.messages.AllowConfirmation;
+import org.mephi.griffin.actorcloud.dispatcher.messages.ClientDisconnected;
 import org.mephi.griffin.actorcloud.nodemanager.messages.NodeOverloaded;
 import org.mephi.griffin.actorcloud.nodemanager.messages.Nodes;
 import org.mephi.griffin.actorcloud.nodemanager.messages.RequestShutdown;
@@ -382,8 +382,8 @@ public class ActorManager extends UntypedActor {
 						ad.setToken(token);
 						logger.logp(Level.FINER, "Manager", "onReceive", "Generated token for session " + ad);
 						AllowConnection ac = new AllowConnection(entry.getKey(), ad.getActor(), token, ad.getAddress());
-						logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Enqueuer: " + ac);
-						getContext().actorSelection(ad.getNetNode() + "/user/enqueuer").tell(ac, getSelf());
+						logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Dispatcher: " + ac);
+						getContext().actorSelection(ad.getNetNode() + "/user/dispatcher").tell(ac, getSelf());
 					}
 				}
 			}
@@ -404,8 +404,8 @@ public class ActorManager extends UntypedActor {
 						ad.setToken(token);
 						logger.logp(Level.FINER, "Manager", "onReceive", "Generated token for session " + ad);
 						AllowConnection ac = new AllowConnection(entry.getKey(), ad.getActor(), token, ad.getAddress());
-						logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Enqueuer: " + ac);
-						getContext().actorSelection(ad.getNetNode() + "/user/enqueuer").tell(ac, getSelf());
+						logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Dispatcher: " + ac);
+						getContext().actorSelection(ad.getNetNode() + "/user/dispatcher").tell(ac, getSelf());
 					}
 				}
 			}
@@ -453,8 +453,8 @@ public class ActorManager extends UntypedActor {
 						authData.setToken(token);
 						logger.logp(Level.FINER, "Manager", "onReceive", "Generated token for session " + authData);
 						AllowConnection ac = new AllowConnection(is.getName(), authData.getActor(), token, authData.getAddress());
-						logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Enqueuer: " + ac);
-						getContext().actorSelection(authData.getNetNode() + "/user/enqueuer").tell(ac, getSelf());
+						logger.logp(Level.FINER, "Manager", "onReceive", "AllowConnection -> Dispatcher: " + ac);
+						getContext().actorSelection(authData.getNetNode() + "/user/dispatcher").tell(ac, getSelf());
 					}
 					break;
 			}
@@ -511,7 +511,7 @@ public class ActorManager extends UntypedActor {
 					if(sd.getActor().equals(hs.getActor())) {
 						sd.setActor(getSender());
 						sd.setActorNode(getSender().path().address());
-						getContext().actorSelection(sd.getNetNode() + "/user/enqueuer").tell(new ActorHandedOff(hs.getActor(), getSender()), getSelf());
+						getContext().actorSelection(sd.getNetNode() + "/user/dispatcher").tell(new ActorHandedOff(hs.getActor(), getSender()), getSelf());
 					}
 				}
 			}
@@ -524,7 +524,7 @@ public class ActorManager extends UntypedActor {
 						iterator.remove();
 						sd.setActor(getSender());
 						sd.setActorNode(getSender().path().address());
-						getContext().actorSelection(sd.getNetNode() + "/user/enqueuer").tell(new ActorHandedOff(hs.getActor(), getSender()), getSelf());
+						getContext().actorSelection(sd.getNetNode() + "/user/dispatcher").tell(new ActorHandedOff(hs.getActor(), getSender()), getSelf());
 						ClientData clientData = newClients.get(hs.getClient());
 						if(clientData != null) clientData.getSessions().add(sd);
 						else {
@@ -556,14 +556,14 @@ public class ActorManager extends UntypedActor {
 					if(authData.getActor().equals(rs.getActor())) {
 						authData.setActor(getSender());
 						authData.setActorNode(getSender().path().address());
-						getContext().actorSelection(authData.getNetNode() + "/user/enqueuer").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
+						getContext().actorSelection(authData.getNetNode() + "/user/dispatcher").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
 					}
 				}
 				for(SessionData sd : cd.getSessions()) {
 					if(sd.getActor().equals(rs.getActor())) {
 						sd.setActor(getSender());
 						sd.setActorNode(getSender().path().address());
-						getContext().actorSelection(sd.getNetNode() + "/user/enqueuer").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
+						getContext().actorSelection(sd.getNetNode() + "/user/dispatcher").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
 					}
 				}
 			}
@@ -573,7 +573,7 @@ public class ActorManager extends UntypedActor {
 					if(authData.getActor().equals(rs.getActor())) {
 						authData.setActor(getSender());
 						authData.setActorNode(getSender().path().address());
-						getContext().actorSelection(authData.getNetNode() + "/user/enqueuer").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
+						getContext().actorSelection(authData.getNetNode() + "/user/dispatcher").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
 					}
 				}
 				Iterator<SessionData> iterator = cd.getSessions().iterator();
@@ -583,7 +583,7 @@ public class ActorManager extends UntypedActor {
 						iterator.remove();
 						sd.setActor(getSender());
 						sd.setActorNode(getSender().path().address());
-						getContext().actorSelection(sd.getNetNode() + "/user/enqueuer").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
+						getContext().actorSelection(sd.getNetNode() + "/user/dispatcher").tell(new ActorRecovered(rs.getActor(), getSender()), getSelf());
 						ClientData clientData = newClients.get(ad.getClient());
 						if(clientData != null) clientData.getSessions().add(sd);
 						else {
@@ -603,7 +603,7 @@ public class ActorManager extends UntypedActor {
 				while(iteratorAd.hasNext()) {
 					AuthData authData = iteratorAd.next();
 					if(authData.getActor().equals(rf.getActor())) {
-						getContext().actorSelection(authData.getNetNode() + "/user/enqueuer").tell(message, getSelf());
+						getContext().actorSelection(authData.getNetNode() + "/user/dispatcher").tell(message, getSelf());
 						iteratorAd.remove();
 					}
 				}
@@ -611,7 +611,7 @@ public class ActorManager extends UntypedActor {
 				while(iteratorSd.hasNext()) {
 					SessionData sd = iteratorSd.next();
 					if(sd.getActor().equals(rf.getActor())) {
-						getContext().actorSelection(sd.getNetNode() + "/user/enqueuer").tell(message, getSelf());
+						getContext().actorSelection(sd.getNetNode() + "/user/dispatcher").tell(message, getSelf());
 						iteratorSd.remove();
 					}
 				}
@@ -622,7 +622,7 @@ public class ActorManager extends UntypedActor {
 				while(iteratorAd.hasNext()) {
 					AuthData authData = iteratorAd.next();
 					if(authData.getActor().equals(rf.getActor())) {
-						getContext().actorSelection(authData.getNetNode() + "/user/enqueuer").tell(message, getSelf());
+						getContext().actorSelection(authData.getNetNode() + "/user/dispatcher").tell(message, getSelf());
 						iteratorAd.remove();
 					}
 				}
@@ -637,7 +637,7 @@ public class ActorManager extends UntypedActor {
 							newClients.put(ad.getClient(), new ClientData(cd.getMessageHandler(), cd.getChildHandler(), cd.getMaxSessions()));
 							newClients.get(ad.getClient()).closeSession(sd.getActor());
 						}
-						getContext().actorSelection(sd.getNetNode() + "/user/enqueuer").tell(message, getSelf());
+						getContext().actorSelection(sd.getNetNode() + "/user/dispatcher").tell(message, getSelf());
 						iteratorSd.remove();
 					}
 				}

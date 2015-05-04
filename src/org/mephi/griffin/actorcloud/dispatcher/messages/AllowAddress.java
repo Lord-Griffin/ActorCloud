@@ -13,36 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer.messages;
+package org.mephi.griffin.actorcloud.dispatcher.messages;
 
-import java.io.Serializable;
+import java.net.InetAddress;
 
 /**
  *
  * @author Griffin
  */
-public class AllowConfirmation implements Serializable {
+public class AllowAddress {
 	
-	private String client;
-	private String token;
+	private InetAddress address;
 	
-	public AllowConfirmation() {}
+	public AllowAddress() {}
 	
-	public AllowConfirmation(String client, String token) {
-		this.client = client;
-		this.token = token;
+	public AllowAddress(InetAddress address) {
+		this.address = address;
 	}
 	
-	public String getClient() {
-		return client;
-	}
-	
-	public String getToken() {
-		return token;
+	public InetAddress getAddress() {
+		return address;
 	}
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", token " + token;
+		return "Address " + address;
 	}
 }

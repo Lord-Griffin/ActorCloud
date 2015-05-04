@@ -13,34 +13,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer;
+package org.mephi.griffin.actorcloud.dispatcher.messages;
 
-import akka.actor.ActorRef;
+import java.io.Serializable;
 
 /**
  *
  * @author Griffin
  */
-public class SessionData {
+public class DisconnectSession implements Serializable {
+	public static final int NOTOKEN = 1;
+	public static final int TIMEOUT = 2;
 	
-//	private String client;
-	private ActorRef actor;
+	private int sessionId;
+	private int reason;
 	
-	public SessionData(/*String client,*/ ActorRef actor) {
-//		this.client = client;
-		this.actor = actor;
+	public DisconnectSession() {}
+	
+	public DisconnectSession(int sessionId, int reason) {
+		this.sessionId = sessionId;
+		this.reason = reason;
 	}
 	
-//	public String getClient() {
-//		return client;
-//	}
+	public int getSessionId() {
+		return sessionId;
+	}
 	
-	public ActorRef getActor() {
-		return actor;
+	public int getReason() {
+		return reason;
 	}
 	
 	@Override
 	public String toString() {
-		return /*"Client " + client + ", actor " + */actor.toString();
+		String res = "Session id " + sessionId + ", reason \"";
+		switch(reason) {
+			case NOTOKEN:
+				res += "Invalid token";
+				break;
+		}
+		res += "\"";
+		return res;
 	}
 }

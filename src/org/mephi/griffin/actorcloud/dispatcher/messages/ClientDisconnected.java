@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Griffin.
+ * Copyright 2014 Griffin.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer.messages;
+package org.mephi.griffin.actorcloud.dispatcher.messages;
 
 import java.io.Serializable;
 
@@ -21,14 +21,7 @@ import java.io.Serializable;
  *
  * @author Griffin
  */
-public class ClientConnected implements Serializable {
-	private final int sessionId;
+public class ClientDisconnected implements Serializable {
 	
-	public ClientConnected(int sessionId) {
-		this.sessionId = sessionId;
-	}
-	
-	public int getSessionId() {
-		return sessionId;
-	}
+	public ClientDisconnected() {}
 }

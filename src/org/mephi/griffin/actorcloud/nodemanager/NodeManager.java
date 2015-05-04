@@ -61,7 +61,7 @@ import org.mephi.griffin.actorcloud.common.InitSuccess;
 import org.mephi.griffin.actorcloud.common.RegisterServer;
 import org.mephi.griffin.actorcloud.common.ServerInfo;
 import org.mephi.griffin.actorcloud.common.UnregisterServer;
-import org.mephi.griffin.actorcloud.enqueuer.Enqueuer;
+import org.mephi.griffin.actorcloud.dispatcher.Dispatcher;
 import org.mephi.griffin.actorcloud.netserver.NetServer;
 import org.mephi.griffin.actorcloud.nodemanager.messages.ActorManagersList;
 import org.mephi.griffin.actorcloud.nodemanager.messages.ActorManagerUp;
@@ -107,7 +107,7 @@ public class NodeManager extends UntypedActor {
 //	private int authState;
 	private ServerInfo netServer;
 	private int netState;
-	private ActorRef enqueuer;
+	private ActorRef dispatcher;
 	private ActorRef storage;
 	private int storageState;
 	private final Map<ActorRef, ActorData> deadActors;
@@ -163,7 +163,7 @@ public class NodeManager extends UntypedActor {
 		else if(halfLifeStr.toLowerCase().endsWith("h")) halfLife *= 3600000;
 		authServer = null;
 		netServer = null;
-		enqueuer = null;
+		dispatcher = null;
 		storage = null;
 		cl = new JarClassLoader(dirList.toArray(new File[0]), ClassLoader.getSystemClassLoader());
 		deadActors = new HashMap<>();
@@ -185,13 +185,13 @@ public class NodeManager extends UntypedActor {
 			ActorRef netServerActor = getContext().system().actorOf(Props.create(NetServer.class, cl, getSelf()), "net-server");
 //			authState = WAITING;
 			netState = WAITING;
-			enqueuer = getContext().system().actorOf(Props.create(Enqueuer.class), "enqueuer");
-			ActorRefMessage msg = new ActorRefMessage(ActorRefMessage.ENQUEUER, enqueuer);
+			dispatcher = getContext().system().actorOf(Props.create(Dispatcher.class), "dispatcher");
+			ActorRefMessage msg = new ActorRefMessage(ActorRefMessage.DISPATCHER, dispatcher);
 			logger.debug("{} -> NetServer: {}", msg.getClass().getSimpleName(), msg);
 			netServerActor.tell(msg, getSelf());
 			msg = new ActorRefMessage(ActorRefMessage.NET, netServerActor);
-			logger.debug("{} -> Enqueuer: {}", msg.getClass().getSimpleName(), msg);
-			enqueuer.tell(msg, getSelf());
+			logger.debug("{} -> Dispatcher: {}", msg.getClass().getSimpleName(), msg);
+			dispatcher.tell(msg, getSelf());
 		}
 		cluster.subscribe(getSelf(), MemberRemoved.class, ReachabilityEvent.class, ClusterMetricsChanged.class);
 	}

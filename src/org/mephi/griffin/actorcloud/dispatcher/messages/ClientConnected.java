@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Griffin.
+ * Copyright 2015 Griffin.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer.messages;
+package org.mephi.griffin.actorcloud.dispatcher.messages;
+
+import java.io.Serializable;
 
 /**
  *
  * @author Griffin
  */
-public class CleanTokens {
+public class ClientConnected implements Serializable {
+	private final int sessionId;
 	
+	public ClientConnected(int sessionId) {
+		this.sessionId = sessionId;
+	}
+	
+	public int getSessionId() {
+		return sessionId;
+	}
 }

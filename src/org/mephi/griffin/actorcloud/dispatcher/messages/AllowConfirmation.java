@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.enqueuer.messages;
+package org.mephi.griffin.actorcloud.dispatcher.messages;
 
 import java.io.Serializable;
 
@@ -21,37 +21,28 @@ import java.io.Serializable;
  *
  * @author Griffin
  */
-public class DisconnectSession implements Serializable {
-	public static final int NOTOKEN = 1;
-	public static final int TIMEOUT = 2;
+public class AllowConfirmation implements Serializable {
 	
-	private int sessionId;
-	private int reason;
+	private String client;
+	private String token;
 	
-	public DisconnectSession() {}
+	public AllowConfirmation() {}
 	
-	public DisconnectSession(int sessionId, int reason) {
-		this.sessionId = sessionId;
-		this.reason = reason;
+	public AllowConfirmation(String client, String token) {
+		this.client = client;
+		this.token = token;
 	}
 	
-	public int getSessionId() {
-		return sessionId;
+	public String getClient() {
+		return client;
 	}
 	
-	public int getReason() {
-		return reason;
+	public String getToken() {
+		return token;
 	}
 	
 	@Override
 	public String toString() {
-		String res = "Session id " + sessionId + ", reason \"";
-		switch(reason) {
-			case NOTOKEN:
-				res += "Invalid token";
-				break;
-		}
-		res += "\"";
-		return res;
+		return "Client " + client + ", token " + token;
 	}
 }

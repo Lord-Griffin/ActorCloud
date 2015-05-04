@@ -22,7 +22,7 @@ import akka.actor.ActorRef;
  * @author Griffin
  */
 public class ActorRefMessage {
-	public static final int ENQUEUER = 1;
+	public static final int DISPATCHER = 1;
 	public static final int NET = 2;
 	public static final int STORAGE = 3;
 	
@@ -48,8 +48,8 @@ public class ActorRefMessage {
 	public String toString() {
 		String res = "";
 		switch(type) {
-			case ENQUEUER:
-				res += "Enqueuer: ";
+			case DISPATCHER:
+				res += "Dispatcher: ";
 				break;
 			case NET:
 				res += "Network server: ";

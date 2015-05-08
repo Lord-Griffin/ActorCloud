@@ -54,7 +54,7 @@ import org.apache.mina.filter.firewall.BlacklistFilter;
 import org.apache.mina.filter.ssl.SslFilter;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
-import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
+import org.mephi.griffin.actorcloud.nodemanager.messages.ActorRefMessage;
 import org.mephi.griffin.actorcloud.dispatcher.messages.AllowAddress;
 import org.mephi.griffin.actorcloud.dispatcher.messages.DisconnectSession;
 import org.mephi.griffin.actorcloud.client.messages.ErrorMessage;

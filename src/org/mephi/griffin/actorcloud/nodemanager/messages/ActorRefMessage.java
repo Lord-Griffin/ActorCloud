@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.actormanager.messages;
+package org.mephi.griffin.actorcloud.nodemanager.messages;
 
 import akka.actor.ActorRef;
 

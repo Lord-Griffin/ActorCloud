@@ -28,7 +28,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
+import org.mephi.griffin.actorcloud.nodemanager.messages.ActorRefMessage;
 import org.mephi.griffin.actorcloud.actormanager.messages.ActorHandedOff;
 import org.mephi.griffin.actorcloud.actormanager.messages.ActorRecovered;
 import org.mephi.griffin.actorcloud.actormanager.messages.AllowConnection;

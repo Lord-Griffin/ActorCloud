@@ -52,7 +52,7 @@ import org.apache.mina.filter.codec.serialization.ObjectSerializationCodecFactor
 import org.apache.mina.filter.ssl.SslFilter;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
-import org.mephi.griffin.actorcloud.actormanager.messages.ActorRefMessage;
+import org.mephi.griffin.actorcloud.nodemanager.messages.ActorRefMessage;
 import org.mephi.griffin.actorcloud.actormanager.messages.AuthDecline;
 import org.mephi.griffin.actorcloud.actormanager.messages.AuthConfirmation;
 import org.mephi.griffin.actorcloud.authentication.messages.ClientAuthenticated;

@@ -79,7 +79,7 @@ public class StorageActor extends UntypedActor {
 			}
 			if(!login.equals("")) client = new MongoClient(new ServerAddress(host, port), Arrays.asList(MongoCredential.createPlainCredential(login, "actorcloud", pass.toCharArray())));
 			else client = new MongoClient(new ServerAddress(host, port));
-			logger.logp(Level.FINER, "StorageActor", "preStart", "Connected to localhost:27017");
+			logger.logp(Level.FINER, "StorageActor", "preStart", "Connected to " + host + ":" + port);
 		}
 		catch (MongoException | UnknownHostException e) {
 			logger.throwing("StorageActor", "preStart", e);

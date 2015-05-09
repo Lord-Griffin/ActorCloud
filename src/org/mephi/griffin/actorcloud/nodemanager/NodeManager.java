@@ -573,7 +573,9 @@ public class NodeManager extends UntypedActor {
 		}
 		else if(message instanceof CreateClientActor) {
 			CreateClientActor cca = (CreateClientActor) message;
-			String name = cca.getClient() + "-" + cca.getAuthServer().path().address().host().get() + "-" + cca.getAuthServer().path().address().port().get() + "-" + cca.getAuthSessionId();
+			Address authServerAddr = cca.getAuthServer().path().address();
+			if(authServerAddr.hasLocalScope()) authServerAddr = cluster.selfAddress();
+			String name = cca.getClient() + "-" + authServerAddr.host().get() + "-" + authServerAddr.port().get() + "-" + cca.getAuthSessionId();
 			getContext().system().actorOf(Props.create(ClientActorWatcher.class, cl, storage, backupManager, cca.getMessageHandler(), cca.getChildHandler(), cca.getClient(), getSender(), cca.getAuthServer(), cca.getAuthSessionId()), name);
 		}
 		else if(message instanceof HandoffClientActor) {

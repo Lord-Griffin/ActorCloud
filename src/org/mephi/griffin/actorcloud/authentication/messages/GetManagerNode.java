@@ -21,5 +21,4 @@ package org.mephi.griffin.actorcloud.authentication.messages;
  */
 public class GetManagerNode {
 	
-	public GetManagerNode() {}
 }

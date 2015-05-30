@@ -17,6 +17,7 @@ package org.mephi.griffin.actorcloud.actormanager.messages;
 
 import akka.actor.Address;
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  *
@@ -25,14 +26,16 @@ import java.io.Serializable;
 public class Handoff implements Serializable {
 	private final Address nodeHandoffTo;
 	private final String client;
-	private final String messageHandler;
-	private final String childHandler;
+	private final int maxChilds;
+	private final Map<String, String> messageHandlers;
+	private final Map<String, String> childHandlers;
 	
-	public Handoff(Address nodeHandoffTo, String client, String messageHandler, String childHandler) {
+	public Handoff(Address nodeHandoffTo, String client, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers) {
 		this.nodeHandoffTo = nodeHandoffTo;
 		this.client = client;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 	}
 
 	public Address getNode() {
@@ -43,11 +46,15 @@ public class Handoff implements Serializable {
 		return client;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
+	public int getMaxChilds() {
+		return maxChilds;
 	}
 	
-	public String getChildHandler() {
-		return childHandler;
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
 	}
 }

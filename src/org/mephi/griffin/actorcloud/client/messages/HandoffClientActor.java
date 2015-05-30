@@ -17,6 +17,7 @@ package org.mephi.griffin.actorcloud.client.messages;
 
 import akka.actor.ActorRef;
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  *
@@ -24,15 +25,17 @@ import java.io.Serializable;
  */
 public class HandoffClientActor implements Serializable {
 	private final String client;
-	private final String messageHandler;
-	private final String childHandler;
+	private final int maxChilds;
+	private final Map<String, String> messageHandlers;
+	private final Map<String, String> childHandlers;
 	private final byte[] watcherSnapshot;
 	private final ActorRef actorManager;
 	
-	public HandoffClientActor(String client, String messageHandler, String childHandler, byte[] watcherSnapshot, ActorRef actorManager) {
+	public HandoffClientActor(String client, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers, byte[] watcherSnapshot, ActorRef actorManager) {
 		this.client = client;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 		this.watcherSnapshot = new byte[watcherSnapshot.length];
 		System.arraycopy(watcherSnapshot, 0, this.watcherSnapshot, 0, watcherSnapshot.length);
 		this.actorManager = actorManager;
@@ -42,12 +45,16 @@ public class HandoffClientActor implements Serializable {
 		return client;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
+	public int getMaxChilds() {
+		return maxChilds;
 	}
 	
-	public String getChildHandler() {
-		return childHandler;
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
 	}
 	
 	public byte[] getWatcherSnapshot() {

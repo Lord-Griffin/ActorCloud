@@ -39,7 +39,7 @@ import org.mephi.griffin.actorcloud.actormanager.messages.CreateActorManager;
 import org.mephi.griffin.actorcloud.actormanager.messages.CreateClientActor;
 import org.mephi.griffin.actorcloud.actormanager.messages.GetNodes;
 import org.mephi.griffin.actorcloud.actormanager.messages.Handoff;
-import org.mephi.griffin.actorcloud.actormanager.messages.RecoverClientActor;
+import org.mephi.griffin.actorcloud.actormanager.messages.Recover;
 import org.mephi.griffin.actorcloud.actormanager.messages.SyncData;
 import org.mephi.griffin.actorcloud.actormanager.messages.SyncTime;
 import org.mephi.griffin.actorcloud.authentication.messages.ClientAuthenticated;
@@ -151,7 +151,7 @@ public class ActorManager extends UntypedActor {
 							request = new HashMap<>();
 							shutdownRequests.put(rs.getNode(), request);
 						}
-						request.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()));
+						request.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()));
 					}
 				}
 			}
@@ -164,7 +164,7 @@ public class ActorManager extends UntypedActor {
 							request = new HashMap<>();
 							shutdownRequests.put(rs.getNode(), request);
 						}
-						request.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()));
+						request.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()));
 					}
 				}
 			}
@@ -183,7 +183,7 @@ public class ActorManager extends UntypedActor {
 				for(Entry<String, ClientData> entry : newClients.entrySet()) {
 					for(SessionData sd : entry.getValue().getSessions()) {
 						if(sd.getActorNode().equals(no.getOverloadedNode())) {
-							sd.getActor().tell(new Handoff(no.getFreeNode(), entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()), getSelf());
+							sd.getActor().tell(new Handoff(no.getFreeNode(), entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()), getSelf());
 							handoffSuccess = true;
 							break;
 						}
@@ -193,7 +193,7 @@ public class ActorManager extends UntypedActor {
 					for(Entry<String, ClientData> entry : clients.entrySet()) {
 						for(SessionData sd : entry.getValue().getSessions()) {
 							if(sd.getActorNode().equals(no.getOverloadedNode())) {
-								sd.getActor().tell(new Handoff(no.getFreeNode(), entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()), getSelf());
+								sd.getActor().tell(new Handoff(no.getFreeNode(), entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()), getSelf());
 								handoffSuccess = true;
 								break;
 							}
@@ -219,7 +219,7 @@ public class ActorManager extends UntypedActor {
 								found = true;
 								break;
 							case AuthData.READY:
-								deadActors.put(ad.getActor(), new ActorData(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()));
+								deadActors.put(ad.getActor(), new ActorData(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()));
 								found = true;
 								break;
 						}
@@ -239,7 +239,7 @@ public class ActorManager extends UntypedActor {
 				}
 				for(SessionData sd : entry.getValue().getSessions()) {
 					if(sd.getActorNode().equals(node)) {
-						deadActors.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()));
+						deadActors.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()));
 						found = true;
 					}
 					if(sd.getNetNode().equals(node)) {
@@ -258,7 +258,7 @@ public class ActorManager extends UntypedActor {
 								found = true;
 								break;
 							case AuthData.READY:
-								deadActors.put(ad.getActor(), new ActorData(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()));
+								deadActors.put(ad.getActor(), new ActorData(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()));
 								found = true;
 								break;
 						}
@@ -278,7 +278,7 @@ public class ActorManager extends UntypedActor {
 				}
 				for(SessionData sd : entry.getValue().getSessions()) {
 					if(sd.getActorNode().equals(node)) {
-						deadActors.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()));
+						deadActors.put(sd.getActor(), new ActorData(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()));
 						found = true;
 					}
 					if(sd.getNetNode().equals(node)) {
@@ -299,7 +299,7 @@ public class ActorManager extends UntypedActor {
 			if(ca.getActor().equals("")) {
 				if(!clients.containsKey(client)) {
 					if(!newClients.containsKey(client)) {
-						ClientData cd = new ClientData(ca.getMessageHandler(), ca.getChildHandler(), ca.getMaxSessions());
+						ClientData cd = new ClientData(ca.getMaxSessions(), ca.getMaxChilds(), ca.getMessageHandlers(), ca.getChildHandlers());
 						cd.addAuthData(ca.getAddress(), ca.getSessionId(), getSender());
 						clients.put(client, cd);
 					}
@@ -354,7 +354,7 @@ public class ActorManager extends UntypedActor {
 			for(Entry<Address, Map<ActorRef, ActorData>> entry1 : shutdownRequests.entrySet()) {
 				if(!entry1.getKey().equals(n.getGeneralNode())) {
 					for(Entry<ActorRef, ActorData> entry2 : entry1.getValue().entrySet()) {
-						entry2.getKey().tell(new Handoff(n.getGeneralNode(), entry2.getValue().getClient(), entry2.getValue().getMessageHandler(), entry2.getValue().getChildHandler()), getSelf());
+						entry2.getKey().tell(new Handoff(n.getGeneralNode(), entry2.getValue().getClient(), entry2.getValue().getMaxChilds(), entry2.getValue().getMessageHandlers(), entry2.getValue().getChildHandlers()), getSelf());
 					}
 				}
 				else if(state == READY) {
@@ -363,12 +363,12 @@ public class ActorManager extends UntypedActor {
 				}
 			}
 			for(Entry<ActorRef, ActorData> entry : deadActors.entrySet()) {
-				getContext().actorSelection(n.getGeneralNode() + "/user/node-manager").tell(new RecoverClientActor(entry.getKey(), entry.getValue().getClient(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler()), getSelf());
+				getContext().actorSelection(n.getGeneralNode() + "/user/node-manager").tell(new Recover(entry.getKey(), entry.getValue().getClient(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers()), getSelf());
 			}
 			for(Entry<String, ClientData> entry : newClients.entrySet()) {
 				for(AuthData ad : entry.getValue().getAuthData()) {
 					if(ad.getState() == AuthData.NODE_WAITING) {
-						getContext().actorSelection(n.getGeneralNode() + "/user/node-manager").tell(new CreateClientActor(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler(), ad.getAuthServer(), ad.getAuthSessionId()), getSelf());
+						getContext().actorSelection(n.getGeneralNode() + "/user/node-manager").tell(new CreateClientActor(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers(), ad.getAuthServer(), ad.getAuthSessionId()), getSelf());
 						ad.setState(AuthData.ACTOR_WAITING);
 						ad.setActorNode(n.getGeneralNode());
 						ad.setNetNode(n.getNetNode());
@@ -390,7 +390,7 @@ public class ActorManager extends UntypedActor {
 			for(Entry<String, ClientData> entry : clients.entrySet()) {
 				for(AuthData ad : entry.getValue().getAuthData()) {
 					if(ad.getState() == AuthData.NODE_WAITING) {
-						getContext().actorSelection(n.getGeneralNode() + "/user/node-manager").tell(new CreateClientActor(entry.getKey(), entry.getValue().getMessageHandler(), entry.getValue().getChildHandler(), ad.getAuthServer(), ad.getAuthSessionId()), getSelf());
+						getContext().actorSelection(n.getGeneralNode() + "/user/node-manager").tell(new CreateClientActor(entry.getKey(), entry.getValue().getMaxChilds(), entry.getValue().getMessageHandlers(), entry.getValue().getChildHandlers(), ad.getAuthServer(), ad.getAuthSessionId()), getSelf());
 						ad.setState(AuthData.ACTOR_WAITING);
 						ad.setActorNode(n.getGeneralNode());
 						ad.setNetNode(n.getNetNode());
@@ -528,7 +528,7 @@ public class ActorManager extends UntypedActor {
 						ClientData clientData = newClients.get(hs.getClient());
 						if(clientData != null) clientData.getSessions().add(sd);
 						else {
-							newClients.put(hs.getClient(), new ClientData(cd.getMessageHandler(), cd.getChildHandler(), cd.getMaxSessions()));
+							newClients.put(hs.getClient(), new ClientData(cd.getMaxSessions(), cd.getMaxChilds(), cd.getMessageHandlers(), cd.getChildHandlers()));
 							newClients.get(hs.getClient()).getSessions().add(sd);
 						}
 					}
@@ -587,7 +587,7 @@ public class ActorManager extends UntypedActor {
 						ClientData clientData = newClients.get(ad.getClient());
 						if(clientData != null) clientData.getSessions().add(sd);
 						else {
-							newClients.put(ad.getClient(), new ClientData(cd.getMessageHandler(), cd.getChildHandler(), cd.getMaxSessions()));
+							newClients.put(ad.getClient(), new ClientData(cd.getMaxSessions(), cd.getMaxChilds(), cd.getMessageHandlers(), cd.getChildHandlers()));
 							newClients.get(ad.getClient()).getSessions().add(sd);
 						}
 					}
@@ -634,7 +634,7 @@ public class ActorManager extends UntypedActor {
 						if(clientData != null)
 							clientData.closeSession(sd.getActor());
 						else {
-							newClients.put(ad.getClient(), new ClientData(cd.getMessageHandler(), cd.getChildHandler(), cd.getMaxSessions()));
+							newClients.put(ad.getClient(), new ClientData(cd.getMaxSessions(), cd.getMaxChilds(), cd.getMessageHandlers(), cd.getChildHandlers()));
 							newClients.get(ad.getClient()).closeSession(sd.getActor());
 						}
 						getContext().actorSelection(sd.getNetNode() + "/user/dispatcher").tell(message, getSelf());

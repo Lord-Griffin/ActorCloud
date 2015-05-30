@@ -23,6 +23,8 @@ import java.io.StringWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.mephi.griffin.actorcloud.common.InitFail;
@@ -37,16 +39,17 @@ public class ChildActor extends UntypedActor {
 	private ClassLoader cl;
 	private String name;
 	private ActorRef storage;
-	private String handlerName;
-	private ChildMessageHandler handler;
+	private Map<String, String> handlersNames;
+	private Map<String, ChildMessageHandler> handlers;
 	
-	public ChildActor(ClassLoader cl, ActorRef storage, String handlerName) {
+	public ChildActor(ClassLoader cl, ActorRef storage, Map<String, String> handlersNames) {
 		logger.entering("ChildActor(" + getContext().parent().path().name() + "/" + getSelf().path().name() + ")", "Constructor");
 		this.cl = cl;
 		this.name = "ChildActor(" + getContext().parent().path().name() + "/" + getSelf().path().name() + ")";
 		this.storage = storage;
-		this.handlerName = handlerName;
-		logger.logp(Level.FINER, name, "Constructor", "Storage: " + storage + ", messageHandler: " + handlerName);
+		this.handlersNames = handlersNames;
+		this.handlers = new HashMap<>();
+		logger.logp(Level.FINER, name, "Constructor", "Storage: " + storage + ", messageHandler: " + handlersNames);
 		logger.exiting(this.name, "Constructor");
 	}
 	
@@ -56,17 +59,21 @@ public class ChildActor extends UntypedActor {
 		logger.logp(Level.FINE, name, "preStart", name + " starts");
 		String errors = "";
 		try {
-			logger.logp(Level.FINER, name, "preStart", "Loading message handler class: " + handlerName);
-			Class handlerClass = cl.loadClass(handlerName);
-			if(!ChildMessageHandler.class.isAssignableFrom(handlerClass)) {
-				errors += "Handler class doesn't inherit ChildMessageHandler class\n";
+			for(Map.Entry<String, String> entry : handlersNames.entrySet()) {
+				logger.logp(Level.FINER, name, "preStart", "Loading message handler class: " + entry.getValue());
+				Class handlerClass = cl.loadClass(entry.getValue());
+				if(!ChildMessageHandler.class.isAssignableFrom(handlerClass)) {
+					errors += "Handler class doesn't inherit ChildMessageHandler class\n";
+				}
+				logger.logp(Level.FINER, name, "preStart", "Acquiring constructor");
+				Constructor con = handlerClass.getDeclaredConstructor();
+				logger.logp(Level.FINER, name, "preStart", "Initializing instance");
+				ChildMessageHandler handler = (ChildMessageHandler) con.newInstance();
+				logger.logp(Level.FINER, name, "preStart", "Initializing config");
+				handler.setActors(this, storage, getContext().parent());
+				handler.init();
+				handlers.put(entry.getKey(), handler);
 			}
-			logger.logp(Level.FINER, name, "preStart", "Acquiring constructor");
-			Constructor con = handlerClass.getDeclaredConstructor();
-			logger.logp(Level.FINER, name, "preStart", "Initializing instance");
-			handler = (ChildMessageHandler) con.newInstance();
-			logger.logp(Level.FINER, name, "preStart", "Initializing config");
-			handler.setActors(this, storage, getContext().parent());
 		}
 		catch(ClassNotFoundException cnfe) {
 			logger.throwing(name, "preStart", cnfe);
@@ -96,7 +103,6 @@ public class ChildActor extends UntypedActor {
 			InitSuccess msg = new InitSuccess(InitSuccess.CHILD, getSelf().path().name(), null, 0);
 			logger.logp(Level.FINER, name, "preStart", "InitSuccess -> ClientActor(" + getContext().parent().path().name() + "): " + msg);
 			getContext().parent().tell(msg, getSelf());
-			handler.init();
 		}
 		logger.exiting(name, "preStart");
 	}
@@ -104,7 +110,8 @@ public class ChildActor extends UntypedActor {
 	@Override
 	public void postStop() {
 		logger.entering(name, "postStop");
-		if(handler != null) handler.destroy();
+		for(ChildMessageHandler handler : handlers.values())
+			if(handler != null) handler.destroy();
 		logger.logp(Level.INFO, name, "postStop", "Child actor " + getSelf().path().name() + " for client \"" + getContext().parent().path().name() + "\" stopped");
 		logger.exiting(name, "postStop");
 	}
@@ -126,7 +133,7 @@ public class ChildActor extends UntypedActor {
 			}
 			logger.logp(Level.FINEST, name, "onReceive", log);
 			try {
-				handler.execute((Message) message, "parent");
+				handlers.get(message.getClass().getName()).execute((Message) message, "parent");
 			}
 			catch(Exception e) {
 				logger.throwing(name, "onReceive", e);

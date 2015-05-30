@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class ClearBackup implements Serializable {
 	
-	public ClearBackup() {}
 }

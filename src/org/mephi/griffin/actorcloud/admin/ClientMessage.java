@@ -15,27 +15,20 @@
  */
 package org.mephi.griffin.actorcloud.admin;
 
-import java.util.List;
 import org.mephi.griffin.actorcloud.client.messages.Message;
 
 /**
  *
  * @author Griffin
  */
-public class ListMessage implements Message {
-	private final List<ShortInfo> list;
-	private final int maxPage;
-		
-	public ListMessage(List<ShortInfo> list, int maxPage) {
-		this.list = list;
-		this.maxPage = maxPage;
+public class ClientMessage implements Message {
+	private final ClientInfo info;
+	
+	public ClientMessage(ClientInfo info) {
+		this.info = info;
 	}
 	
-	public List<ShortInfo> getList() {
-		return list;
-	}
-	
-	public int getMaxPage() {
-		return maxPage;
+	public ClientInfo getInfo() {
+		return info;
 	}
 }

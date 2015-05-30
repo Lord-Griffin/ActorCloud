@@ -15,26 +15,36 @@
  */
 package org.mephi.griffin.actorcloud.admin;
 
-import org.mephi.griffin.actorcloud.client.messages.Message;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
  * @author Griffin
  */
-public class ClientInfo implements Message {
+public class ClientInfo implements Serializable {
 	
+	private String oldLogin;
 	private String login;
 	private byte[] hash;
-	private String messageHandler;
-	private String childHandler;
+	private int maxSessions;
+	private int maxChilds;
+	private List<Handler> mainHandlers;
+	private List<Handler> childHandlers;
 	
-	public ClientInfo() {}
+	public ClientInfo() {
+		oldLogin = "";
+		login = "";
+		hash = null;
+		maxSessions = 0;
+		maxChilds = 0;
+		mainHandlers = new ArrayList<>();
+		childHandlers = new ArrayList<>();
+	}
 	
-	public ClientInfo(String login, byte[] hash, String messageHandler, String childHandler) {
-		this.login = login;
-		this.hash = hash;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
+	public void setOldLogin(String oldLogin) {
+		this.oldLogin = oldLogin;
 	}
 	
 	public void setLogin(String login) {
@@ -45,12 +55,40 @@ public class ClientInfo implements Message {
 		this.hash = hash;
 	}
 	
-	public void setMessageHandler(String messageHandler) {
-		this.messageHandler = messageHandler;
+	public void setMaxSessions(int maxSessions) {
+		this.maxSessions = maxSessions;
 	}
 	
-	public void setChildHandler(String childHandler) {
-		this.childHandler = childHandler;
+	public void setMaxChilds(int maxChilds) {
+		this.maxChilds = maxChilds;
+	}
+	
+	public void addMainHandler(String message, String handler) {
+		mainHandlers.add(new Handler(message, handler));
+	}
+	
+	public void setMainHandler(String message, String handler, int page, int index) {
+		mainHandlers.set(page * 10 + (9 + index) % 10, new Handler(message, handler));
+	}
+	
+	public void removeMainHandler(int page, int index) {
+		mainHandlers.remove(page * 10 + (9 + index) % 10);
+	}
+	
+	public void addChildHandler(String message, String handler) {
+		childHandlers.add(new Handler(message, handler));
+	}
+	
+	public void setChildHandler(String message, String handler, int page, int index) {
+		childHandlers.set(page * 10 + (9 + index) % 10, new Handler(message, handler));
+	}
+	
+	public void removeChildHandler(int page, int index) {
+		childHandlers.remove(page * 10 + (9 + index) % 10);
+	}
+	
+	public String getOldLogin() {
+		return oldLogin;
 	}
 	
 	public String getLogin() {
@@ -61,11 +99,19 @@ public class ClientInfo implements Message {
 		return hash;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
+	public int getMaxSessions() {
+		return maxSessions;
 	}
 	
-	public String getChildHandler() {
-		return childHandler;
+	public int getMaxChilds() {
+		return maxChilds;
+	}
+	
+	public List<Handler> getMainHandlers() {
+		return mainHandlers;
+	}
+	
+	public List<Handler> getChildHandlers() {
+		return childHandlers;
 	}
 }

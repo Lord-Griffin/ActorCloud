@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class ClientDisconnected implements Serializable {
 	
-	public ClientDisconnected() {}
 }

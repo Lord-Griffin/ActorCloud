@@ -32,10 +32,12 @@ import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.mephi.griffin.actorcloud.actormanager.messages.ActorStopped;
 import org.mephi.griffin.actorcloud.actormanager.messages.Handoff;
+import org.mephi.griffin.actorcloud.admin.AdminActor;
 import org.mephi.griffin.actorcloud.client.messages.CheckProgress;
 import org.mephi.griffin.actorcloud.client.messages.ClearBackup;
 import org.mephi.griffin.actorcloud.client.messages.CloseSession;
@@ -82,8 +84,9 @@ public class ClientActorWatcher extends UntypedActor {
 	private ActorRef backupManager;
 	private ActorRef clientActor;
 	private ActorRef storage;
-	private String messageHandler;
-	private String childHandler;
+	private int maxChilds;
+	private Map<String, String> messageHandlers;
+	private Map<String, String> childHandlers;
 	private ActorRef oldActor;
 	private final ActorRef actorManager;
 	private final ActorRef authServer;
@@ -109,7 +112,7 @@ public class ClientActorWatcher extends UntypedActor {
 	private Cancellable progressSched, connectSched, idleSched;
 	
 	@SuppressWarnings("LeakingThisInConstructor")
-	public ClientActorWatcher(ClassLoader cl, ActorRef storage, ActorRef backupManager, String messageHandler, String childHandler, String client, ActorRef actorManager, ActorRef authServer, int authSessionId) {
+	public ClientActorWatcher(ClassLoader cl, ActorRef storage, ActorRef backupManager, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers, String client, ActorRef actorManager, ActorRef authServer, int authSessionId) {
 		this.logger = Logging.getLogger(this);
 		this.cl = cl;
 		this.actorManager = actorManager;
@@ -119,9 +122,9 @@ public class ClientActorWatcher extends UntypedActor {
 		this.client = client;
 		this.backupManager = backupManager;
 		if(client.equals("admin"))
-			clientActor = getContext().actorOf(Props.create(org.mephi.griffin.actorcloud.admin.AdminActor.class, authServer, authSessionId), getSelf().path().name());
+			clientActor = getContext().actorOf(Props.create(AdminActor.class, storage, backupManager), getSelf().path().name());
 		else
-			clientActor = getContext().actorOf(Props.create(ClientActor.class, cl, storage, backupManager, messageHandler, childHandler, client), getSelf().path().name());
+			clientActor = getContext().actorOf(Props.create(ClientActor.class, cl, storage, backupManager, maxChilds, messageHandlers, childHandlers, client), getSelf().path().name());
 		gracefulClose = false;
 		connectState = DISCONNECTED;
 		workState = IDLE;
@@ -143,11 +146,12 @@ public class ClientActorWatcher extends UntypedActor {
 	}
 	
 	@SuppressWarnings("LeakingThisInConstructor")
-	public ClientActorWatcher(ClassLoader cl, ActorRef storage, ActorRef backupManager, String messageHandler, String childHandler, String client, ActorRef actorManager, ActorRef oldActor, byte[] watcherSnapshot) {
+	public ClientActorWatcher(ClassLoader cl, ActorRef storage, ActorRef backupManager, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers, String client, ActorRef actorManager, ActorRef oldActor, byte[] watcherSnapshot) {
 		this.logger = Logging.getLogger(this);
 		this.cl = cl;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 		this.oldActor = oldActor;
 		this.actorManager = actorManager;
 		this.storage = storage;
@@ -198,7 +202,7 @@ public class ClientActorWatcher extends UntypedActor {
 	}
 	
 	@SuppressWarnings("LeakingThisInConstructor")
-	public ClientActorWatcher(ClassLoader cl, ActorRef storage, ActorRef backupManager, String messageHandler, String childHandler, String client, ActorRef actorManager, ActorRef oldActor, byte[] watcherSnapshot, List<byte[]> messages, byte[] actorSnapshot) {
+	public ClientActorWatcher(ClassLoader cl, ActorRef storage, ActorRef backupManager, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers, String client, ActorRef actorManager, ActorRef oldActor, byte[] watcherSnapshot, List<byte[]> messages, byte[] actorSnapshot) {
 		this.logger = Logging.getLogger(this);
 		this.cl = cl;
 		this.actorManager = actorManager;
@@ -222,7 +226,7 @@ public class ClientActorWatcher extends UntypedActor {
 			if(client.equals("admin"))
 				clientActor = getContext().actorOf(Props.create(org.mephi.griffin.actorcloud.admin.AdminActor.class, authServer, authSessionId), getSelf().path().name());
 			else
-				clientActor = getContext().actorOf(Props.create(ClientActor.class, cl, storage, backupManager, messageHandler, childHandler, client, oldActor, actorSnapshot), getSelf().path().name());
+				clientActor = getContext().actorOf(Props.create(ClientActor.class, cl, storage, backupManager, maxChilds, messageHandlers, childHandlers, client, oldActor, actorSnapshot), getSelf().path().name());
 		}
 		else {
 			clientActor = null;
@@ -287,7 +291,7 @@ public class ClientActorWatcher extends UntypedActor {
 		}
 		else if(message instanceof HandoffSnapshot) {
 			HandoffSnapshot hs = (HandoffSnapshot) message;
-			getContext().actorOf(Props.create(ClientActor.class, cl, storage, backupManager, messageHandler, childHandler, client, oldActor, hs.getSnapshot()), getSelf().path().name());
+			getContext().actorOf(Props.create(ClientActor.class, cl, storage, backupManager, maxChilds, messageHandlers, childHandlers, client, oldActor, hs.getSnapshot()), getSelf().path().name());
 		}
 		else if(message instanceof InitSuccess) {
 			actorManager.tell(new InitSuccess(InitSuccess.CLIENT, client, authServer, authSessionId), getSelf());
@@ -562,7 +566,7 @@ public class ClientActorWatcher extends UntypedActor {
 			list.add(currentMessageId);
 			list.add(snapshotId);
 			byte[] watcherSnapshot = serialization.findSerializerFor(list).toBinary(list);
-			getContext().actorSelection(h.getNode() + "/user/node-manager").tell(new HandoffClientActor(h.getClient(), h.getMessageHandler(), h.getChildHandler(), watcherSnapshot, actorManager), getSelf());
+			getContext().actorSelection(h.getNode() + "/user/node-manager").tell(new HandoffClientActor(h.getClient(), h.getMaxChilds(), h.getMessageHandlers(), h.getChildHandlers(), watcherSnapshot, actorManager), getSelf());
 		}
 		else if(message instanceof HandoffPrepareSuccess) {
 			actorHandoffTo = getSender();

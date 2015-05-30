@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class ConnectTimeout implements Serializable {
 	
-	public ConnectTimeout() {}
 }

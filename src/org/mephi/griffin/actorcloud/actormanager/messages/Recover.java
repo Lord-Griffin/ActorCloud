@@ -17,22 +17,25 @@ package org.mephi.griffin.actorcloud.actormanager.messages;
 
 import akka.actor.ActorRef;
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  *
  * @author Griffin
  */
-public class RecoverClientActor implements Serializable {
+public class Recover implements Serializable {
 	private final ActorRef deadActor;
 	private final String client;
-	private final String messageHandler;
-	private final String childHandler;
+	private final int maxChilds;
+	private final Map<String, String> messageHandlers;
+	private final Map<String, String> childHandlers;
 	
-	public RecoverClientActor(ActorRef deadActor, String client, String messageHandler, String childHandler) {
+	public Recover(ActorRef deadActor, String client, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers) {
 		this.deadActor = deadActor;
 		this.client = client;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 	}
 	
 	public ActorRef getActor() {
@@ -43,16 +46,20 @@ public class RecoverClientActor implements Serializable {
 		return client;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
+	public int getMaxChilds() {
+		return maxChilds;
 	}
 	
-	public String getChildHandler() {
-		return childHandler;
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
 	}
 	
 	@Override
 	public String toString() {
-		return "deadActor " + deadActor + ", client " + client + ", messageHandler " + messageHandler + ", childHandler " + childHandler;
+		return "deadActor " + deadActor + ", client " + client + ", messageHandler " + messageHandlers + ", childHandler " + childHandlers;
 	}
 }

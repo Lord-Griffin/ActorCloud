@@ -124,7 +124,7 @@ public class AuthServer extends UntypedActor {
 				trustStore.load(new FileInputStream(trustStoreFile), trustStorePass.toCharArray());
 				TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
 				tmf.init(trustStore);
-				SSLContext sslContext = SSLContext.getInstance("SSL");
+				SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
 				sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 				SslFilter sslFilter = new SslFilter(sslContext);
 				sslFilter.setNeedClientAuth(true);
@@ -294,11 +294,13 @@ public class AuthServer extends UntypedActor {
 									address = ((InetSocketAddress) clientData.getSession().getRemoteAddress()).getAddress();
 								}
 								else System.out.println("o_O");
-								String messageHandler = (String) entity.get("messageHandler");
-								String childHandler = (String) entity.get("childHandler");
+								clientData.setMaxSessions((int) sr.getEntities()[0].get("maxSessions"));
+								clientData.setMaxChilds((int) sr.getEntities()[0].get("maxChilds"));
+								for(int i = 0; i < ((List) sr.getEntities()[0].get("messageHandlers")).size(); i++)
+									clientData.addMessageHandler((String) ((List<Entity>) sr.getEntities()[0].get("messageHandlers")).get(i).get("message"), (String) ((List<Entity>) sr.getEntities()[0].get("messageHandlers")).get(i).get("handler"));
+								for(int i = 0; i < ((List) sr.getEntities()[0].get("childHandlers")).size(); i++)
+									clientData.addChildHandler((String) ((List<Entity>) sr.getEntities()[0].get("childHandlers")).get(i).get("message"), (String) ((List<Entity>) sr.getEntities()[0].get("childHandlers")).get(i).get("handler"));
 								clientData.setAddress(address);
-								clientData.setMessageHandler(messageHandler);
-								clientData.setChildHandler(childHandler);
 								clientData.setAuthOk(true);
 								if(state == READY) {
 									GetManagerNode msg = new GetManagerNode();
@@ -330,7 +332,7 @@ public class AuthServer extends UntypedActor {
 			while(iterator.hasNext()) {
 				AuthData authData = iterator.next();
 				if(authData.isAuthOk()) {
-					ClientAuthenticated msg = new ClientAuthenticated(authData.getLogin(), authData.getActor(), authData.getAddress(), authData.getSessionId(), authData.getMessageHandler(), authData.getChildHandler(), 1);
+					ClientAuthenticated msg = new ClientAuthenticated(authData.getLogin(), authData.getActor(), authData.getAddress(), authData.getSessionId(), authData.getMaxSessions(), authData.getMaxChilds(), authData.getMessageHandlers(), authData.getChildHandlers());
 					logger.logp(Level.FINER, "AuthServer", "onReceive", "ClientAuthenticated -> ActorManager: " + msg);
 					getContext().actorSelection(mn.getAddress() + "/user/actor-manager").tell(msg, getSelf());
 					iterator.remove();

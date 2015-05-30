@@ -22,6 +22,7 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -32,17 +33,19 @@ public class ClientData implements Serializable {
 	private List<AuthData> authData;
 	private List<SessionData> sessions;
 	private List<ActorRef> closedSessions;
-	private String messageHandler;
-	private String childHandler;
 	private int maxSessions;
+	private int maxChilds;
+	private Map<String, String> messageHandlers;
+	private Map<String, String> childHandlers;
 	
-	public ClientData(String messageHandler, String childHandler, int maxSessions) {
+	public ClientData(int maxSessions, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers) {
 		authData = new ArrayList<>();
 		sessions = new ArrayList<>();
 		closedSessions = new ArrayList<>();
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
 		this.maxSessions = maxSessions;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 	}
 	
 	public void addAuthData(InetAddress address, int sessionId, ActorRef authServer) {
@@ -81,16 +84,20 @@ public class ClientData implements Serializable {
 		return closedSessions;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
-	}
-	
-	public String getChildHandler() {
-		return childHandler;
-	}
-	
 	public int getMaxSessions() {
 		return maxSessions;
+	}
+	
+	public int getMaxChilds() {
+		return maxChilds;
+	}
+	
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
 	}
 	
 	public void merge(ClientData data) {
@@ -105,7 +112,7 @@ public class ClientData implements Serializable {
 	}
 	
 	public ClientData getSyncCopy() {
-		ClientData cd = new ClientData(messageHandler, childHandler, maxSessions);
+		ClientData cd = new ClientData(maxSessions, maxChilds, messageHandlers, childHandlers);
 		for(SessionData sd : sessions)
 			cd.addSession(sd.getActor(), sd.getActorNode(), sd.getNetNode());
 		for(ActorRef ar : closedSessions)
@@ -115,8 +122,8 @@ public class ClientData implements Serializable {
 	
 	public String getDump() {
 		String dump = "";
-		dump += "    messageHandler " + messageHandler + "\n";
-		dump += "    childHandler " + childHandler + "\n";
+		dump += "    messageHandler " + messageHandlers + "\n";
+		dump += "    childHandler " + childHandlers + "\n";
 		dump += "    maxSessions " + maxSessions + "\n";
 		dump += "    authData:\n";
 		int i = 0;

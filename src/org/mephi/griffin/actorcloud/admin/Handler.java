@@ -15,13 +15,26 @@
  */
 package org.mephi.griffin.actorcloud.admin;
 
-import org.mephi.griffin.actorcloud.client.messages.Message;
+import java.io.Serializable;
 
 /**
  *
  * @author Griffin
  */
-public class ResultMessage implements Message {
+public class Handler implements Serializable {
+	private final String message;
+	private final String handler;
 	
-	public ResultMessage() {}
+	public Handler(String message, String handler) {
+		this.message = message;
+		this.handler = handler;
+	}
+	
+	public String getMessage() {
+		return message;
+	}
+	
+	public String getHandler() {
+		return handler;
+	}
 }

@@ -76,6 +76,7 @@ public class SimpleQuery extends Query {
 		return false;
 	}
 	
+	@Override
 	BasicDBObject getDoc() {
 		if(op == ALL) return null;
 		if(op == EQUAL) return new BasicDBObject(field, value);

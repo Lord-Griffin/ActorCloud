@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class HandoffPrepareSuccess implements Serializable {
 	
-	public HandoffPrepareSuccess() {}
 }

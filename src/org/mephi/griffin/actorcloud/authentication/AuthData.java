@@ -17,7 +17,12 @@ package org.mephi.griffin.actorcloud.authentication;
 
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.mina.core.session.IoSession;
+import org.mephi.griffin.actorcloud.admin.Handler;
 import org.mephi.griffin.actorcloud.util.Coder;
 
 /**
@@ -31,8 +36,10 @@ public class AuthData implements Serializable {
 	private int sessionId;
 	private IoSession session;
 	private InetAddress address;
-	private String messageHandler;
-	private String childHandler;
+	private int maxSessions;
+	private int maxChilds;
+	private Map<String, String> messageHandlers;
+	private Map<String, String> childHandlers;
 	private boolean authOk;
 	
 	public AuthData(String login, byte[] hash, String actor, int sessionId, IoSession session) {
@@ -41,6 +48,8 @@ public class AuthData implements Serializable {
 		this.actor = actor;
 		this.sessionId = sessionId;
 		this.session = session;
+		this.messageHandlers = new HashMap<>();
+		this.childHandlers = new HashMap<>();
 		this.authOk = false;
 	}
 	
@@ -72,12 +81,20 @@ public class AuthData implements Serializable {
 		return address;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
+	public int getMaxSessions() {
+		return maxSessions;
 	}
 	
-	public String getChildHandler() {
-		return childHandler;
+	public int getMaxChilds() {
+		return maxChilds;
+	}
+	
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
 	}
 	
 	public void setAuthOk(boolean authOk) {
@@ -88,12 +105,20 @@ public class AuthData implements Serializable {
 		this.address = address;
 	}
 	
-	public void setMessageHandler(String messageHandler) {
-		this.messageHandler = messageHandler;
+	public void setMaxSessions(int maxSessions) {
+		this.maxSessions = maxSessions;
 	}
 	
-	public void setChildHandler(String childHandler) {
-		this.childHandler = childHandler;
+	public void setMaxChilds(int maxChilds) {
+		this.maxChilds = maxChilds;
+	}
+	
+	public void addMessageHandler(String message, String handler) {
+		messageHandlers.put(message, handler);
+	}
+	
+	public void addChildHandler(String message, String handler) {
+		childHandlers.put(message, handler);
 	}
 	
 	public String getDump() {
@@ -104,8 +129,8 @@ public class AuthData implements Serializable {
 		dump += "    sessionId " + sessionId + "\n";
 		dump += "    session " + session + "\n";
 		dump += "    address" + address + "\n";
-		dump += "    messageHandler" + messageHandler + "\n";
-		dump += "    childHandler" + childHandler + "\n";
+		dump += "    messageHandler" + messageHandlers + "\n";
+		dump += "    childHandler" + childHandlers + "\n";
 		dump += "    authOk" + authOk + "\n";
 		return dump;
 	}

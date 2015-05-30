@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class CloseSession implements Serializable {
 	
-	public CloseSession() {}
 }

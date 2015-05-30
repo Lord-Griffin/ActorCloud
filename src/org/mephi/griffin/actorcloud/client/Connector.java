@@ -69,7 +69,7 @@ public class Connector extends IoHandlerAdapter {
 		trustStore.load(new FileInputStream(trustStoreName), trustStorePass.toCharArray());
 		TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
 		tmf.init(trustStore);
-		SSLContext sslContext = SSLContext.getInstance("SSL");
+		SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
 		sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 		connector = new NioSocketConnector();
 		DefaultIoFilterChainBuilder chain = connector.getFilterChain();

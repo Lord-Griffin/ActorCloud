@@ -20,6 +20,7 @@ import akka.actor.UntypedActor;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoCredential;
 import com.mongodb.MongoException;
@@ -30,6 +31,7 @@ import com.typesafe.config.ConfigException.Missing;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,6 +47,7 @@ public class StorageActor extends UntypedActor {
 	private static final Logger logger = Logger.getLogger(StorageActor.class.getName());
 	private ActorRef nodeManager;
 	private MongoClient client;
+	private String dbName;
 	private DB db;
 	
 	public StorageActor(ActorRef nodeManager) {
@@ -77,22 +80,52 @@ public class StorageActor extends UntypedActor {
 				login = "";
 				pass = "";
 			}
+			try {dbName = config.getString("actorcloud.storage.db");}
+			catch(Missing ex) {dbName = "actorcloud";}
 			if(!login.equals("")) client = new MongoClient(new ServerAddress(host, port), Arrays.asList(MongoCredential.createPlainCredential(login, "actorcloud", pass.toCharArray())));
 			else client = new MongoClient(new ServerAddress(host, port));
 			logger.logp(Level.FINER, "StorageActor", "preStart", "Connected to " + host + ":" + port);
+			if(client != null) {
+				db = client.getDB(dbName);
+				DBCursor cursor = db.getCollection("clients").find();
+				boolean adminFound = false;
+				if(cursor.count() != 0) {
+					while(cursor.hasNext()) {
+						DBObject doc = cursor.next();
+						if(doc.get("name") != null && doc.get("name").equals("admin")) {
+							adminFound = true;
+							break;
+						}
+					}
+				}
+				if(!adminFound) {
+					MessageDigest md = MessageDigest.getInstance("SHA-512");
+					BasicDBObject doc = new BasicDBObject();
+					byte[] hash = md.digest(("admin").getBytes());
+					doc.append("name", "admin");
+					doc.append("hash", hash);
+					doc.append("maxSessions", 1);
+					doc.append("maxChilds", 0);
+					doc.append("messageHandlers", new ArrayList<>());
+					doc.append("childHandlers", new ArrayList<>());
+					db.getCollection("clients").insert(doc);
+				}
+				InitSuccess msg = new InitSuccess(InitSuccess.STORAGE, null, null, 0);
+				logger.logp(Level.FINER, "StorageActor", "preStart", "InitSuccess -> Manager: " + msg);
+				nodeManager.tell(msg, getSelf());
+				logger.logp(Level.INFO, "StorageActor", "preStart", "Storage started");
+			}
+			else {
+				InitFail msg = new InitFail(InitFail.STORAGE, null, null, 0, errors);
+				logger.logp(Level.FINER, "StorageActor", "preStart", "InitFail -> Manager: " + msg);
+				nodeManager.tell(msg, getSelf());
+				logger.logp(Level.WARNING, "StorageActor", "preStart", "Failed to connect to DB:\n" + errors);
+				getContext().stop(getSelf());
+			}
 		}
-		catch (MongoException | UnknownHostException e) {
+		catch (MongoException | UnknownHostException | NoSuchAlgorithmException e) {
 			logger.throwing("StorageActor", "preStart", e);
 			errors += e.getMessage() + "\n";
-		}
-		if(client != null) {
-			db = client.getDB("actorcloud");
-			InitSuccess msg = new InitSuccess(InitSuccess.STORAGE, null, null, 0);
-			logger.logp(Level.FINER, "StorageActor", "preStart", "InitSuccess -> Manager: " + msg);
-			nodeManager.tell(msg, getSelf());
-			logger.logp(Level.INFO, "StorageActor", "preStart", "Storage started");
-		}
-		else {
 			InitFail msg = new InitFail(InitFail.STORAGE, null, null, 0, errors);
 			logger.logp(Level.FINER, "StorageActor", "preStart", "InitFail -> Manager: " + msg);
 			nodeManager.tell(msg, getSelf());
@@ -189,25 +222,5 @@ public class StorageActor extends UntypedActor {
 		}
 		else unhandled(message);
 		logger.exiting("StorageActor", "onReceive");
-	}
-	
-	public static void main(String[] args) {		
-		try {
-			MongoClient client = new MongoClient("localhost", 27017);
-			DB db = client.getDB("actorcloud");
-			MessageDigest md = MessageDigest.getInstance("SHA-512");
-			for(int i = 30; i < 50; i++) {
-				BasicDBObject obj = new BasicDBObject();
-				byte[] hash = md.digest(("netsend" + i).getBytes());
-				obj.append("name", "netsend" + i);
-				obj.append("hash", hash);
-				obj.append("messageHandler", "actorcloudnettest.StringMessageHandler");
-				obj.append("childHandler", "");
-				db.getCollection("clients").insert(obj);
-			}
-		}
-		catch (UnknownHostException | NoSuchAlgorithmException ex) {
-			Logger.getLogger(StorageActor.class.getName()).log(Level.SEVERE, null, ex);
-		}
 	}
 }

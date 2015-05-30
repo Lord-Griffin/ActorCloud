@@ -24,6 +24,7 @@ public class Coder {
 	private static final char[] base64Array = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".toCharArray();
 
 	public static String toHexString(byte[] bytes) {
+		if(bytes == null) return "";
 		char[] hexChars = new char[bytes.length * 2];
 		for (int i = 0; i < bytes.length; i++) {
 			int v = bytes[i] & 0xFF;
@@ -34,6 +35,7 @@ public class Coder {
 	}
 	
 	public static String toBase64String(byte[] bytes) {
+		if(bytes == null) return "";
 		int base64length = bytes.length / 3 * 4 + (bytes.length % 3 == 0 ? 0 : 4);
 		base64length += base64length / 64 + (base64length % 64 == 0 ? 0 : 1);
 		char[] base64Chars = new char[base64length];

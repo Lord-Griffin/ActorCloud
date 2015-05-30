@@ -56,20 +56,21 @@ public class CompoundQuery extends Query {
 	}
 	
 	public void add(SimpleQuery query) {
-		if(query.getOp() == query.EQUAL) fields.put(query.getField(), query.getValue());
-		if(query.getOp() == query.GREATER) fields.put(query.getField(), new BasicDBObject("$gt", query.getValue()));
-		if(query.getOp() == query.GREATER_OR_EQUAL) fields.put(query.getField(), new BasicDBObject("$gte", query.getValue()));
-		if(query.getOp() == query.LESS) fields.put(query.getField(), new BasicDBObject("$lt", query.getValue()));
-		if(query.getOp() == query.LESS_OR_EQUAL) fields.put(query.getField(), new BasicDBObject("$lte", query.getValue()));
-		if(query.getOp() == query.NOT_EQUAL) fields.put(query.getField(), new BasicDBObject("$ne", query.getValue()));
-		if(query.getOp() == query.IN) fields.put(query.getField(), new BasicDBObject("$in", query.getValue()));
-		if(query.getOp() == query.NOT_IN) fields.put(query.getField(), new BasicDBObject("$nin", query.getValue()));
+		if(query.getOp() == SimpleQuery.EQUAL) fields.put(query.getField(), query.getValue());
+		if(query.getOp() == SimpleQuery.GREATER) fields.put(query.getField(), new BasicDBObject("$gt", query.getValue()));
+		if(query.getOp() == SimpleQuery.GREATER_OR_EQUAL) fields.put(query.getField(), new BasicDBObject("$gte", query.getValue()));
+		if(query.getOp() == SimpleQuery.LESS) fields.put(query.getField(), new BasicDBObject("$lt", query.getValue()));
+		if(query.getOp() == SimpleQuery.LESS_OR_EQUAL) fields.put(query.getField(), new BasicDBObject("$lte", query.getValue()));
+		if(query.getOp() == SimpleQuery.NOT_EQUAL) fields.put(query.getField(), new BasicDBObject("$ne", query.getValue()));
+		if(query.getOp() == SimpleQuery.IN) fields.put(query.getField(), new BasicDBObject("$in", query.getValue()));
+		if(query.getOp() == SimpleQuery.NOT_IN) fields.put(query.getField(), new BasicDBObject("$nin", query.getValue()));
 	}
 	
 	public void add(SimpleQuery[] queries) {
 		for (SimpleQuery query : queries) add(query);
 	}
 	
+	@Override
 	BasicDBObject getDoc() {
 		BasicDBObject result = new BasicDBObject();
 		if(type == AND) {

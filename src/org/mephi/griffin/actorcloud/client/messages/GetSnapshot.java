@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class GetSnapshot implements Serializable {
 	
-	public GetSnapshot() {}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Griffin.
+ * Copyright 2015 Griffin.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,26 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.mephi.griffin.actorcloud.actormanager;
+package org.mephi.griffin.actorcloud.admin;
 
-import akka.actor.ActorRef;
+import org.mephi.griffin.actorcloud.client.messages.Message;
 
-public class ClientFindResult {
-	private String client;
-	private ActorRef ref;
+/**
+ *
+ * @author Griffin
+ */
+public class FailMessage implements Message {
+	public static final int ADD = 1;
+	public static final int MODIFY = 2;
+	public static final int REMOVE = 3;
+
+	private final int type;
 	
-	public ClientFindResult() {}
-	
-	public ClientFindResult(String client, ActorRef ref) {
-		this.client = client;
-		this.ref = ref;
+	public FailMessage(int type) {
+		this.type = type;
 	}
 	
-	public String getClient() {
-		return client;
-	}
-	
-	public ActorRef getRef() {
-		return ref;
+	public int getType() {
+		return type;
 	}
 }

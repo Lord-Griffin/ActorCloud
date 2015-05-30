@@ -16,6 +16,7 @@
 package org.mephi.griffin.actorcloud.common;
 
 import akka.actor.ActorRef;
+import java.util.Map;
 
 /**
  *
@@ -23,19 +24,21 @@ import akka.actor.ActorRef;
  */
 public class ActorData {
 	private String client;
-	private String messageHandler;
-	private String childHandler;
+	private int maxChilds;
+	private Map<String, String> messageHandlers;
+	private Map<String, String> childHandlers;
 	private ActorRef actorManager;
 
-	public ActorData(String client, String messageHandler, String childHandler) {
+	public ActorData(String client, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers) {
 		this.client = client;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 		this.actorManager = null;
 	}
 	
-	public ActorData(String client, String messageHandler, String childHandler, ActorRef actorManager) {
-		this(client, messageHandler, childHandler);
+	public ActorData(String client, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers, ActorRef actorManager) {
+		this(client, maxChilds, messageHandlers, childHandlers);
 		this.actorManager = actorManager;
 	}
 	
@@ -43,12 +46,16 @@ public class ActorData {
 		return client;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
+	public int getMaxChilds() {
+		return maxChilds;
 	}
 	
-	public String getChildHandler() {
-		return childHandler;
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
 	}
 	
 	public ActorRef getActorManager() {
@@ -58,8 +65,8 @@ public class ActorData {
 	public String getDump() {
 		String dump = "";
 		dump += "    client " + client + "\n";
-		dump += "    messsageHandler " + messageHandler + "\n";
-		dump += "    childHandler " + childHandler + "\n";
+		dump += "    messsageHandler " + messageHandlers + "\n";
+		dump += "    childHandler " + childHandlers + "\n";
 		if(actorManager != null) dump += "    actorManager " + actorManager + "\n";
 		return dump;
 	}

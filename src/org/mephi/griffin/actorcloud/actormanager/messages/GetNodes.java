@@ -21,5 +21,4 @@ package org.mephi.griffin.actorcloud.actormanager.messages;
  */
 public class GetNodes {
 	
-	public GetNodes() {}
 }

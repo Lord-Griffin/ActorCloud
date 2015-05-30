@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class SyncTime implements Serializable {
 	
-	public SyncTime() {}	
 }

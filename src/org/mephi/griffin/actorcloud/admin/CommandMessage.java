@@ -24,46 +24,67 @@ import org.mephi.griffin.actorcloud.client.messages.Message;
 public class CommandMessage implements Message {
 	
 	public static final int LIST = 1;
+	public static final int GET = 2;
 	public static final int ADD = 3;
 	public static final int MODIFY = 4;
 	public static final int REMOVE = 5;
 	
-	private int op;
-	private int index;
-	private ClientInfo clientInfo;
+	private final int op;
+	private final int page;
+	private final int index;
+	private final String login;
+	private final ClientInfo info;
 	
-	public CommandMessage() {}
-	
-	public CommandMessage(int op) {
+	public CommandMessage(int op, int page) {
 		this.op = op;
+		this.page = page;
+		this.index = 0;
+		this.login = null;
+		this.info = null;
 	}
 	
-	public CommandMessage(int op, int index) {
+	public CommandMessage(int op, String login) {
 		this.op = op;
-		this.index = index;
+		this.page = 0;
+		this.index = 0;
+		this.login = login;
+		this.info = null;
 	}
 	
 	public CommandMessage(int op, ClientInfo clientInfo) {
 		this.op = op;
-		this.clientInfo = clientInfo;
+		this.page = 0;
+		this.index = 0;
+		this.login = null;
+		this.info = clientInfo;
 	}
 	
-	public CommandMessage(int op, int index, ClientInfo clientInfo) {
+	public CommandMessage(int op, ClientInfo clientInfo, String login) {
 		this.op = op;
-		this.index = index;
-		this.clientInfo = clientInfo;
+		this.page = 0;
+		this.index = 0;
+		this.login = login;
+		this.info = clientInfo;
 	}
 	
 	public int getOp() {
 		return op;
 	}
 	
+	public int getPage() {
+		return page;
+	}
+	
 	public int getIndex() {
 		return index;
 	}
 	
+	public String getLogin() {
+		return login;
+	}
+	
 	public ClientInfo getClientInfo() {
-		return clientInfo;
+		return info;
 	}
 	
 }

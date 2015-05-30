@@ -17,6 +17,7 @@ package org.mephi.griffin.actorcloud.actormanager.messages;
 
 import akka.actor.ActorRef;
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  *
@@ -26,13 +27,15 @@ public class CreateClientActor implements Serializable {
 	private final String client;
 	private final ActorRef authServer;
 	private final int authSessionId;
-	private final String messageHandler;
-	private final String childHandler;
+	private final int maxChilds;
+	private final Map<String, String> messageHandlers;
+	private final Map<String, String> childHandlers;
 	
-	public CreateClientActor(String client, String messageHandler, String childHandler, ActorRef authServer, int authSessionId) {
+	public CreateClientActor(String client, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers, ActorRef authServer, int authSessionId) {
 		this.client = client;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 		this.authServer = authServer;
 		this.authSessionId = authSessionId;
 	}
@@ -41,12 +44,16 @@ public class CreateClientActor implements Serializable {
 		return client;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
+	public int getMaxChilds() {
+		return maxChilds;
 	}
 	
-	public String getChildHandler() {
-		return childHandler;
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
 	}
 	
 	public ActorRef getAuthServer() {
@@ -59,6 +66,6 @@ public class CreateClientActor implements Serializable {
 	
 	@Override
 	public String toString() {
-		return "Client " + client + ", authServer " + authServer + ", authSessionId " + authSessionId + ", messageHandler " + messageHandler + ", childHandler " + childHandler;
+		return "Client " + client + ", authServer " + authServer + ", authSessionId " + authSessionId + ", messageHandler " + messageHandlers + ", childHandler " + childHandlers;
 	}
 }

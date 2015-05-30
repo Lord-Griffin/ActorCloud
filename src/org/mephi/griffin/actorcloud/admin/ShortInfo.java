@@ -15,27 +15,26 @@
  */
 package org.mephi.griffin.actorcloud.admin;
 
-import java.util.List;
-import org.mephi.griffin.actorcloud.client.messages.Message;
+import java.io.Serializable;
 
 /**
  *
  * @author Griffin
  */
-public class ListMessage implements Message {
-	private final List<ShortInfo> list;
-	private final int maxPage;
-		
-	public ListMessage(List<ShortInfo> list, int maxPage) {
-		this.list = list;
-		this.maxPage = maxPage;
+public class ShortInfo implements Serializable {
+	private final String login;
+	private final String id;
+	
+	public ShortInfo(String login, String id) {
+		this.login = login;
+		this.id = id;
 	}
 	
-	public List<ShortInfo> getList() {
-		return list;
+	public String getLogin() {
+		return login;
 	}
 	
-	public int getMaxPage() {
-		return maxPage;
+	public String getId() {
+		return id;
 	}
 }

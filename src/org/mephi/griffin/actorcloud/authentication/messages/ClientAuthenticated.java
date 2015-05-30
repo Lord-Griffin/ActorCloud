@@ -17,6 +17,7 @@ package org.mephi.griffin.actorcloud.authentication.messages;
 
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.util.Map;
 
 /**
  *
@@ -28,18 +29,20 @@ public class ClientAuthenticated implements Serializable {
 	private final String actor;
 	private final InetAddress address;
 	private final int sessionId;
-	private final String messageHandler;
-	private final String childHandler;
 	private final int maxSessions;
+	private final int maxChilds;
+	private final Map<String, String> messageHandlers;
+	private final Map<String, String> childHandlers;
 	
-	public ClientAuthenticated(String login, String actor, InetAddress address, int sessionId, String messageHandler, String childHandler, int maxSessions) {
+	public ClientAuthenticated(String login, String actor, InetAddress address, int sessionId, int maxSessions, int maxChilds, Map<String, String> messageHandlers, Map<String, String> childHandlers) {
 		this.login = login;
 		this.actor = actor;
 		this.address = address;
 		this.sessionId = sessionId;
-		this.messageHandler = messageHandler;
-		this.childHandler = childHandler;
 		this.maxSessions = maxSessions;
+		this.maxChilds = maxChilds;
+		this.messageHandlers = messageHandlers;
+		this.childHandlers = childHandlers;
 	}
 	
 	public String getLogin() {
@@ -58,20 +61,24 @@ public class ClientAuthenticated implements Serializable {
 		return sessionId;
 	}
 	
-	public String getMessageHandler() {
-		return messageHandler;
-	}
-	
-	public String getChildHandler() {
-		return childHandler;
-	}
-	
 	public int getMaxSessions() {
 		return maxSessions;
 	}
 	
+	public int getMaxChilds() {
+		return maxChilds;
+	}
+	
+	public Map<String, String> getMessageHandlers() {
+		return messageHandlers;
+	}
+	
+	public Map<String, String> getChildHandlers() {
+		return childHandlers;
+	}
+	
 	@Override
 	public String toString() {
-		return "Login \"" + login + "\", address " + address + ", authentication server session id " + sessionId + ", main message handler class " + messageHandler + ", child message handler class " + childHandler + ", max sessions " + maxSessions;
+		return "Login \"" + login + "\", address " + address + ", authentication server session id " + sessionId + ", main message handler class " + messageHandlers + ", child message handler class " + childHandlers + ", max sessions " + maxSessions;
 	}
 }

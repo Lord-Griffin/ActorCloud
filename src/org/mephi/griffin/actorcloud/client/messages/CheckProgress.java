@@ -23,5 +23,4 @@ import java.io.Serializable;
  */
 public class CheckProgress implements Serializable {
 	
-	public CheckProgress() {}
 }

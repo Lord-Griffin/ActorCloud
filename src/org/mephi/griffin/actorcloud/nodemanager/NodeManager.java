@@ -46,7 +46,7 @@ import org.mephi.griffin.actorcloud.actormanager.messages.AllowShutdown;
 import org.mephi.griffin.actorcloud.actormanager.messages.CreateActorManager;
 import org.mephi.griffin.actorcloud.actormanager.messages.CreateClientActor;
 import org.mephi.griffin.actorcloud.actormanager.messages.GetNodes;
-import org.mephi.griffin.actorcloud.actormanager.messages.RecoverClientActor;
+import org.mephi.griffin.actorcloud.actormanager.messages.Recover;
 import org.mephi.griffin.actorcloud.actormanager.messages.SyncData;
 import org.mephi.griffin.actorcloud.authentication.AuthServer;
 import org.mephi.griffin.actorcloud.authentication.messages.GetManagerNode;
@@ -576,22 +576,22 @@ public class NodeManager extends UntypedActor {
 			Address authServerAddr = cca.getAuthServer().path().address();
 			if(authServerAddr.hasLocalScope()) authServerAddr = cluster.selfAddress();
 			String name = cca.getClient() + "-" + authServerAddr.host().get() + "-" + authServerAddr.port().get() + "-" + cca.getAuthSessionId();
-			getContext().system().actorOf(Props.create(ClientActorWatcher.class, cl, storage, backupManager, cca.getMessageHandler(), cca.getChildHandler(), cca.getClient(), getSender(), cca.getAuthServer(), cca.getAuthSessionId()), name);
+			getContext().system().actorOf(Props.create(ClientActorWatcher.class, cl, storage, backupManager, cca.getMaxChilds(), cca.getMessageHandlers(), cca.getChildHandlers(), cca.getClient(), getSender(), cca.getAuthServer(), cca.getAuthSessionId()), name);
 		}
 		else if(message instanceof HandoffClientActor) {
 			HandoffClientActor hca = (HandoffClientActor) message;
 			String name = getSender().path().name();
-			getContext().system().actorOf(Props.create(ClientActorWatcher.class, cl, storage, backupManager, hca.getMessageHandler(), hca.getChildHandler(), hca.getClient(), hca.getActorManager(), getSender(), hca.getWatcherSnapshot()), name);
+			getContext().system().actorOf(Props.create(ClientActorWatcher.class, cl, storage, backupManager, hca.getMaxChilds(), hca.getMessageHandlers(), hca.getChildHandlers(), hca.getClient(), hca.getActorManager(), getSender(), hca.getWatcherSnapshot()), name);
 		}
-		else if(message instanceof RecoverClientActor) {
-			RecoverClientActor rca = (RecoverClientActor) message;
+		else if(message instanceof Recover) {
+			Recover rca = (Recover) message;
 			backupManager.tell(new GetBackup(rca.getActor()), getSelf());
-			deadActors.put(rca.getActor(), new ActorData(rca.getClient(), rca.getMessageHandler(), rca.getChildHandler(), getSender()));
+			deadActors.put(rca.getActor(), new ActorData(rca.getClient(), rca.getMaxChilds(), rca.getMessageHandlers(), rca.getChildHandlers(), getSender()));
 		}
 		else if(message instanceof Backup) {
 			Backup b = (Backup) message;
 			ActorData ad = deadActors.get(b.getActor());
-			getContext().system().actorOf(Props.create(ClientActorWatcher.class, cl, storage, backupManager, ad.getMessageHandler(), ad.getChildHandler(), ad.getClient(), ad.getActorManager(), b.getActor(), b.getWatcherSnapshot(), b.getMessages(), b.getActorSnapshot()), b.getActor().path().name());
+			getContext().system().actorOf(Props.create(ClientActorWatcher.class, cl, storage, backupManager, ad.getMaxChilds(), ad.getMessageHandlers(), ad.getChildHandlers(), ad.getClient(), ad.getActorManager(), b.getActor(), b.getWatcherSnapshot(), b.getMessages(), b.getActorSnapshot()), b.getActor().path().name());
 		}
 		else if(message instanceof SyncData) {
 			for(Node managerNode : managerNodes) {
